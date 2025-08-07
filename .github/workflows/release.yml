@@ -3,7 +3,10 @@ name: release
 on:
   release:
     types:
-      - released
+      - published
+
+permissions:
+  contents: write
 
 jobs:
   build:
