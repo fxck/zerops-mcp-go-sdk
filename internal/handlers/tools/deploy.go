@@ -146,7 +146,7 @@ func registerDeployPush(server *mcp.Server, client *sdk.Handler) {
 				"  git init\n"+
 				"  git add .\n"+
 				"  git commit -m \"Initial commit\"\n\n"+
-				"Note: Zerops requires at least one commit to track files for deployment.", workDir)), nil
+				"Note: Zerops requires at least one commit to track files for deployment.", workDir, workDir)), nil
 		}
 
 		// First, ensure zcli is logged in
