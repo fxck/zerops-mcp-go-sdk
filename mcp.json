@@ -1,0 +1,9 @@
+{
+  "name": "zerops-mcp",
+  "version": "1.0.0",
+  "description": "MCP server for Zerops platform management",
+  "command": "./zerops-mcp",
+  "env": {
+    "ZEROPS_API_KEY": "${ZEROPS_API_KEY}"
+  }
+}
