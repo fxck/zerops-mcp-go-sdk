@@ -66,11 +66,12 @@ jobs:
 
       - name: build
         env: ${{ matrix.env }}
-        run: >-
-          go build
-          -o builds/${{ matrix.file }}
-          -ldflags "-s -w -X main.version=${{ github.event.release.tag_name }}"
-          ./cmd/mcp-server/main.go
+        run: |
+          mkdir -p builds
+          go build \
+            -o builds/${{ matrix.file }} \
+            -ldflags "-s -w -X main.version=${{ github.event.release.tag_name }}" \
+            ./cmd/mcp-server/main.go
 
       - name: compress binary
         if: ${{ matrix.compress }}
