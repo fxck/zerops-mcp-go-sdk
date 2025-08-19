@@ -66,14 +66,19 @@ knowledge_search("nodejs") → create multiple services → deploy with matching
 - Mailpit (email testing): https://github.com/zeropsio/recipe-mailpit
 - S3Browser (S3 UI): https://github.com/zeropsio/recipe-s3browser
 
-## Recipe with Custom Hostname
+## Recipe Import Requirements
 
-To use a recipe with a different hostname, simply change the hostname:
+IMPORTANT: Recipe services MUST use their standard hostnames:
+- Adminer → hostname: adminer
+- Mailpit → hostname: mailpit  
+- S3Browser → hostname: s3browser
 
     services:
-      - hostname: databasewizard    # Your custom name
+      - hostname: adminer    # MUST use standard name
         type: php@8.3
         buildFromGit: https://github.com/zeropsio/recipe-adminer
+
+To use custom names: import first, then rename in Zerops GUI
 
 Remember: Knowledge base first, then create!
 `

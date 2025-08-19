@@ -207,12 +207,14 @@ Before creating services, ALWAYS search the knowledge base:
 4. Hostname must be alphanumeric only (no hyphens)
 5. For utility services (Adminer, Mailpit, S3Browser), KEEP buildFromGit field!
 
-## Recipe with Custom Hostname
-Simply change the hostname while keeping buildFromGit:
-services:
-  - hostname: mycustomname    # Your custom hostname
-    type: php@8.3
-    buildFromGit: https://github.com/zeropsio/recipe-adminer
+## Recipe Import Rules
+Recipe services MUST use standard hostnames:
+- adminer (NOT databasewizard or mycustomname)
+- mailpit (NOT emailtester)
+- s3browser (NOT s3manager)
+Example:
+  hostname: adminer  # REQUIRED name for recipe to work
+  buildFromGit: https://github.com/zeropsio/recipe-adminer
 
 ## Common Service Types (always verify with KB first)
 - postgresql@16, mariadb@11, mongodb@7

@@ -218,13 +218,20 @@ func handleKnowledgeGet(ctx context.Context, client *sdk.Handler, args map[strin
 			message.WriteString("  * Mailpit: https://github.com/zeropsio/recipe-mailpit\n")
 			message.WriteString("  * S3Browser: https://github.com/zeropsio/recipe-s3browser\n")
 			message.WriteString("- These are pre-built Zerops recipes, NOT the original tool repos\n\n")
-			message.WriteString("TO USE RECIPE WITH CUSTOM HOSTNAME:\n")
-			message.WriteString("```yaml\nservices:\n")
-			message.WriteString("  - hostname: yourcustomname  # Use ANY hostname you want\n")
+			message.WriteString("IMPORTANT - RECIPE HOSTNAME LIMITATION:\n")
+			message.WriteString("Recipe services MUST use their standard hostnames during import:\n")
+			message.WriteString("  - Adminer must be named 'adminer'\n")
+			message.WriteString("  - Adminerevo must be named 'adminerevo'\n")
+			message.WriteString("  - Mailpit must be named 'mailpit'\n")
+			message.WriteString("  - S3Browser must be named 's3browser'\n\n")
+			message.WriteString("TO USE CUSTOM HOSTNAME:\n")
+			message.WriteString("1. Import with standard name first\n")
+			message.WriteString("2. Rename the service after import (if needed)\n\n")
+			message.WriteString("Example:\n```yaml\nservices:\n")
+			message.WriteString("  - hostname: adminer  # MUST use standard name\n")
 			message.WriteString("    type: php@8.3\n")
 			message.WriteString("    buildFromGit: https://github.com/zeropsio/recipe-adminer\n")
-			message.WriteString("```\n")
-			message.WriteString("Just change the hostname - keep the buildFromGit URL!\n\n")
+			message.WriteString("```\n\n")
 		}
 	}
 	
@@ -299,10 +306,13 @@ func extractYAMLFromRecipe(content interface{}) string {
 			}
 		}
 		
-		// Add a comment about using custom hostnames for recipes
+		// Add a warning about recipe hostname requirements
 		if strings.Contains(yaml, "buildFromGit") && strings.Contains(yaml, "recipe") {
-			yaml += "\n# To use with custom hostname: just change the hostname field!\n"
-			yaml += "# Keep the buildFromGit URL the same.\n"
+			yaml += "\n# WARNING: Recipe services MUST use their standard hostnames!\n"
+			yaml += "# - adminer (not databasewizard)\n"
+			yaml += "# - mailpit (not emailtester)\n"
+			yaml += "# - s3browser (not s3manager)\n"
+			yaml += "# To use custom names: import first, then rename in GUI\n"
 		}
 		
 		return yaml
