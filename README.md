@@ -38,7 +38,7 @@ irm https://raw.githubusercontent.com/krls2020/zerops-mcp-go-sdk/main/install.ps
 - Zerops API key: [app.zerops.io/settings/token-management](https://app.zerops.io/settings/token-management)
 - zcli (for deployments in stdio mode)
 
-## Claude Desktop Setup
+## Claude Code Setup
 
 ```bash
 # Quick setup
