@@ -16,17 +16,15 @@ jobs:
     name: Create Release
     runs-on: ubuntu-latest
     if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')
-    outputs:
-      upload_url: ${{ steps.create_release.outputs.upload_url }}
     steps:
       - name: Create Release
         id: create_release
-        uses: actions/create-release@v1
+        uses: softprops/action-gh-release@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           tag_name: ${{ github.ref_name }}
-          release_name: ${{ github.ref_name }} - Production Ready Release
+          name: ${{ github.ref_name }} - Production Ready Release
           body: |
             ## 🚀 Zerops MCP Server ${{ github.ref_name }}
             
@@ -128,27 +126,19 @@ jobs:
         if: ${{ matrix.compress }}
         uses: svenstaro/upx-action@v2
         with:
-          file: ./builds/${{ matrix.file }}
+          files: ./builds/${{ matrix.file }}
           strip: ${{ matrix.strip }}
 
       - name: upload asset to release
         if: github.event_name == 'release'
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        uses: softprops/action-gh-release@v1
         with:
-          upload_url: ${{ github.event.release.upload_url }}
-          asset_path: ./builds/${{ matrix.file }}
-          asset_name: ${{ matrix.file }}
-          asset_content_type: application/octet-stream
+          tag_name: ${{ github.event.release.tag_name }}
+          files: ./builds/${{ matrix.file }}
 
       - name: upload artifact to created release
         if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        uses: softprops/action-gh-release@v1
         with:
-          upload_url: ${{ needs.create-release.outputs.upload_url }}
-          asset_path: ./builds/${{ matrix.file }}
-          asset_name: ${{ matrix.file }}
-          asset_content_type: application/octet-stream
+          tag_name: ${{ github.ref_name }}
+          files: ./builds/${{ matrix.file }}
