@@ -181,12 +181,12 @@ func handleKnowledgeGetShared(ctx context.Context, client *sdk.Handler, args map
 
 	// Format the content nicely
 	var prettyJSON strings.Builder
-	var temp interface{}
-	if err := json.Unmarshal(knowledge.Content, &temp); err == nil {
-		prettyBytes, _ := json.MarshalIndent(temp, "", "  ")
+	// Content is already an interface{}, so just marshal it directly
+	if prettyBytes, err := json.MarshalIndent(knowledge.Content, "", "  "); err == nil {
 		prettyJSON.Write(prettyBytes)
 	} else {
-		prettyJSON.Write(knowledge.Content)
+		// If it's not JSON-able, convert to string
+		prettyJSON.WriteString(fmt.Sprintf("%v", knowledge.Content))
 	}
 
 	var message strings.Builder
