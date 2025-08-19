@@ -203,6 +203,18 @@ func handleKnowledgeGet(ctx context.Context, client *sdk.Handler, args map[strin
 			message.WriteString(yamlExample)
 			message.WriteString("\n```\n\n")
 		}
+		
+		// Also provide important recipe information
+		if recipe, ok := knowledge.Content.(map[string]interface{}); ok {
+			if sourceRecipe, ok := recipe["sourceRecipe"].(string); ok {
+				message.WriteString(fmt.Sprintf("Recipe GitHub: https://github.com/zeropsio/%s\n", sourceRecipe))
+			}
+			// Check if there's a specific note about the recipe
+			message.WriteString("\nIMPORTANT for recipes:\n")
+			message.WriteString("- Use the EXACT YAML shown above\n")
+			message.WriteString("- Do NOT use 'php-apache' as a type (use 'php@8.3')\n")
+			message.WriteString("- The buildFromGit field handles the recipe setup\n\n")
+		}
 	}
 	
 	// If it's a service, show the exact type string to use
@@ -246,6 +258,9 @@ func extractYAMLFromRecipe(content interface{}) string {
 				yaml += fmt.Sprintf("    type: %v\n", svc["type"])
 				
 				// Add optional fields if present
+				if buildFromGit, ok := svc["buildFromGit"]; ok {
+					yaml += fmt.Sprintf("    buildFromGit: %v\n", buildFromGit)
+				}
 				if mode, ok := svc["mode"]; ok {
 					yaml += fmt.Sprintf("    mode: %v\n", mode)
 				}
@@ -257,6 +272,18 @@ func extractYAMLFromRecipe(content interface{}) string {
 				}
 				if maxContainers, ok := svc["maxContainers"]; ok {
 					yaml += fmt.Sprintf("    maxContainers: %v\n", maxContainers)
+				}
+				// Include ports if present
+				if ports, ok := svc["ports"].([]interface{}); ok && len(ports) > 0 {
+					yaml += "    ports:\n"
+					for _, port := range ports {
+						if p, ok := port.(map[string]interface{}); ok {
+							yaml += fmt.Sprintf("      - port: %v\n", p["port"])
+							if httpSupport, ok := p["httpSupport"]; ok && httpSupport == true {
+								yaml += "        httpSupport: true\n"
+							}
+						}
+					}
 				}
 			}
 		}
