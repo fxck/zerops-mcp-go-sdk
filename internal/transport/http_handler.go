@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"os"
 	"strings"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
@@ -107,6 +108,19 @@ func (h *HTTPHandler) processRequest(ctx context.Context, request map[string]int
 	method, _ := request["method"].(string)
 	id := request["id"]
 	params, _ := request["params"].(map[string]interface{})
+
+	// Log client information if available
+	if method == "initialize" && params != nil {
+		if clientInfo, ok := params["clientInfo"].(map[string]interface{}); ok {
+			clientName, _ := clientInfo["name"].(string)
+			clientVersion, _ := clientInfo["version"].(string)
+			fmt.Fprintf(os.Stderr, "Client connected: %s v%s\n", clientName, clientVersion)
+			
+			// Store client info in context for use in tools
+			ctx = context.WithValue(ctx, "clientName", clientName)
+			ctx = context.WithValue(ctx, "clientVersion", clientVersion)
+		}
+	}
 
 	switch method {
 	case "initialize":

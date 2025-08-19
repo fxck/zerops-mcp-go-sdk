@@ -47,6 +47,9 @@ func RegisterForMCP(server *mcp.Server, client *sdk.Handler) error {
 			if client != nil {
 				ctx = context.WithValue(ctx, "zeropsClient", client)
 			}
+			
+			// Note: Client info (name/version) is available during initialization
+			// but not accessible here in tool handlers through the session
 
 			// Call the shared handler
 			result, err := td.Handler(ctx, client, args)
