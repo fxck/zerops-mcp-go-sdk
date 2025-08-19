@@ -208,7 +208,7 @@ Before creating services, ALWAYS search the knowledge base:
 
 ## Common Service Types (always verify with KB first)
 - postgresql@16, mariadb@11, mongodb@7
-- nodejs@20, python@3.11, php-apache@8.3
+- nodejs@20, python@3.11, php@8.3 (NOT php-apache!)
 - valkey@7, keydb@6, elasticsearch@8
 
 ## Error Recovery

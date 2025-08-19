@@ -46,7 +46,7 @@ Databases:
 - keydb@6 (modes: HA, NON_HA)
 
 Runtimes:
-- php-apache@8.3, php-nginx@8.4
+- php@8.3, php@8.2 (NOT php-apache or php-nginx!)
 - nodejs@20, nodejs@18
 - python@3.11, python@3.10
 - go@1, go@1.21
@@ -107,11 +107,18 @@ func handleRecipeImport(ctx context.Context, client *sdk.Handler, args map[strin
 "Failed to parse response: [400][serviceStackTypeNotFound] Service stack Type not found."
 
 // After:
-"Service type not recognized. Common issues:
-- MongoDB: Use 'mongodb@7' not 'mongodb@7.0'
-- Hostname: Use alphanumeric only (e.g., 'mongodb7' not 'mongodb')
-- Check spelling: 'valkey' not 'redis'
-Use 'service_types_list' to see all valid types."
+"Service type not found.
+
+PROBLEM: 'php-apache@8.3' is not a valid service type
+SOLUTION: php (use php@8.3 with appropriate run configuration)
+
+To fix:
+1. Use knowledge_search('php') to find the correct service
+2. Use knowledge_get('services/php') to get exact type string
+3. Common services:
+   - PHP: use 'php@8.3' (NOT php-apache or php-nginx)
+   - PostgreSQL: use 'postgresql@16' (NOT postgres)
+   - Redis-compatible: use 'valkey@7' (NOT redis)"
 ```
 
 ### 5. Add Tool Instructions in Description

@@ -307,14 +307,28 @@ func handleProjectImport(ctx context.Context, client *sdk.Handler, args map[stri
 		// Provide helpful error guidance
 		errMsg := err.Error()
 		if strings.Contains(errMsg, "serviceStackTypeNotFound") {
-			return shared.ErrorResponse(fmt.Sprintf(
-				"Service type not found. Common issues:\n"+
-				"1. Invalid service type - Use knowledge_search('service_name') to find correct type\n"+
-				"2. MongoDB: Use 'mongodb@7' not 'mongodb@7.0'\n"+
-				"3. Hostname: Use alphanumeric only (e.g., 'mongodb7' not 'mongodb')\n"+
-				"4. Check mode: Must be 'HA' or 'NON_HA' for databases\n\n"+
-				"Example: knowledge_get('services/mongodb') for MongoDB configuration\n"+
-				"Original error: %v", err)), nil
+			// Try to extract the problematic service type
+			invalidType := extractInvalidServiceType(yamlContent)
+			suggestion := GetServiceTypeSuggestion(invalidType)
+			
+			helpMsg := "Service type not found.\n\n"
+			
+			if suggestion != "" {
+				helpMsg += fmt.Sprintf("PROBLEM: '%s' is not a valid service type\n", invalidType)
+				helpMsg += fmt.Sprintf("SOLUTION: %s\n\n", suggestion)
+			}
+			
+			helpMsg += "To fix:\n"
+			helpMsg += "1. Use knowledge_search('service_name') to find the correct service\n"
+			helpMsg += "2. Use knowledge_get('services/SERVICE') to get exact type string\n"
+			helpMsg += "3. Common services:\n"
+			helpMsg += "   - PHP: use 'php@8.3' (NOT php-apache or php-nginx)\n"
+			helpMsg += "   - PostgreSQL: use 'postgresql@16' (NOT postgres)\n"
+			helpMsg += "   - Redis-compatible: use 'valkey@7' (NOT redis)\n"
+			helpMsg += "   - MySQL-compatible: use 'mariadb@11' (NOT mysql)\n\n"
+			helpMsg += fmt.Sprintf("Original error: %v", err)
+			
+			return shared.ErrorResponse(helpMsg), nil
 		}
 		return shared.ErrorResponse(fmt.Sprintf("Import failed: %v", err)), nil
 	}
@@ -323,17 +337,29 @@ func handleProjectImport(ctx context.Context, client *sdk.Handler, args map[stri
 	if err != nil {
 		errMsg := err.Error()
 		if strings.Contains(errMsg, "serviceStackTypeNotFound") {
-			return shared.ErrorResponse(fmt.Sprintf(
-				"Service configuration error. To fix:\n"+
-				"1. Run: knowledge_search('%s') to find the service\n"+
-				"2. Run: knowledge_get('services/SERVICE_NAME') for exact configuration\n"+
-				"3. Use the exact 'type' value from the knowledge base\n\n"+
-				"Common corrections:\n"+
-				"- valkey@7 (not redis@7)\n"+
-				"- keydb@6 (not keydb@6.0)\n"+
-				"- php-apache@8.3 (not php@8.3)\n\n"+
-				"Original error: %v", 
-				extractServiceName(yamlContent), err)), nil
+			// Try to extract the problematic service type
+			invalidType := extractInvalidServiceType(yamlContent)
+			suggestion := GetServiceTypeSuggestion(invalidType)
+			
+			helpMsg := "Service configuration error.\n\n"
+			
+			if suggestion != "" {
+				helpMsg += fmt.Sprintf("PROBLEM: '%s' is not a valid service type\n", invalidType)
+				helpMsg += fmt.Sprintf("SOLUTION: %s\n\n", suggestion)
+			}
+			
+			serviceName := extractServiceName(yamlContent)
+			helpMsg += fmt.Sprintf("To fix:\n")
+			helpMsg += fmt.Sprintf("1. Run: knowledge_search('%s') to find the service\n", serviceName)
+			helpMsg += "2. Run: knowledge_get('services/SERVICE_NAME') for exact configuration\n"
+			helpMsg += "3. Use the EXACT 'type' value from the knowledge base\n\n"
+			helpMsg += "Remember:\n"
+			helpMsg += "- PHP services use 'php@8.3' NOT 'php-apache@8.3'\n"
+			helpMsg += "- Use 'valkey@7' for Redis-compatible (NOT 'redis')\n"
+			helpMsg += "- Use 'mariadb@11' for MySQL-compatible (NOT 'mysql')\n\n"
+			helpMsg += fmt.Sprintf("Original error: %v", err)
+			
+			return shared.ErrorResponse(helpMsg), nil
 		}
 		return shared.ErrorResponse(fmt.Sprintf("Failed to parse response: %v", err)), nil
 	}
@@ -344,6 +370,20 @@ func handleProjectImport(ctx context.Context, client *sdk.Handler, args map[stri
 }
 
 // Helper functions
+func extractInvalidServiceType(yamlContent string) string {
+	// Extract the full service type that's causing the error
+	lines := strings.Split(yamlContent, "\n")
+	for _, line := range lines {
+		if strings.Contains(line, "type:") {
+			parts := strings.Split(line, ":")
+			if len(parts) > 1 {
+				return strings.TrimSpace(parts[1])
+			}
+		}
+	}
+	return ""
+}
+
 func extractServiceName(yamlContent string) string {
 	// Try to extract first service type from YAML for better error hints
 	lines := strings.Split(yamlContent, "\n")
