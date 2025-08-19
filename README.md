@@ -42,9 +42,14 @@ Download from [GitHub Releases](https://github.com/krls2020/zerops-mcp-go-sdk/re
 ### Add to Claude Code
 
 ```bash
-# Quick setup
+# Quick setup (after install script)
 export ZEROPS_API_KEY="your-api-key"
+
+# macOS/Linux - uses install script path
 claude mcp add zerops -s user ~/.local/bin/zerops-mcp
+
+# Windows - uses install script path  
+claude mcp add zerops -s user ~\.zerops\mcp\bin\zerops-mcp.exe
 ```
 
 Or manual config (`~/Library/Application Support/Claude/claude_desktop_config.json`):
