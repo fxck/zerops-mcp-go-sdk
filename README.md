@@ -125,7 +125,7 @@ zerops-mcp-go-sdk/
 ### Core Components
 
 **MCP Server Implementation**
-- Uses the `github.com/mark3labs/mcp-go` library
+- Uses the `github.com/modelcontextprotocol/go-sdk` library
 - Implements JSON-RPC 2.0 protocol over stdio
 - Provides tool discovery and execution
 
