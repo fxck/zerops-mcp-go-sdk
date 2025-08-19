@@ -25,9 +25,19 @@ func GetDynamicInstructions(clientName, clientVersion string) string {
 		modelType = "generic"
 	}
 
+	// Always log what was detected
+	fmt.Fprintf(os.Stderr, "\n=== INSTRUCTION CUSTOMIZATION ===\n")
 	if clientName != "" {
-		fmt.Fprintf(os.Stderr, "Customizing instructions for: %s v%s (type: %s)\n", clientName, clientVersion, modelType)
+		fmt.Fprintf(os.Stderr, "Client Name: %s\n", clientName)
+		fmt.Fprintf(os.Stderr, "Client Version: %s\n", clientVersion)
+		fmt.Fprintf(os.Stderr, "Detected Model Type: %s\n", modelType)
+		fmt.Fprintf(os.Stderr, "Instructions: Customized for %s\n", modelType)
+	} else {
+		fmt.Fprintf(os.Stderr, "Client Name: Not provided\n")
+		fmt.Fprintf(os.Stderr, "Detected Model Type: generic\n")
+		fmt.Fprintf(os.Stderr, "Instructions: Using generic instructions\n")
 	}
+	fmt.Fprintf(os.Stderr, "=================================\n\n")
 
 	// Base instructions
 	base := `

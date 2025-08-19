@@ -46,6 +46,17 @@ func (h *HTTPHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 		return
 	}
+	
+	// Log User-Agent and other headers that might contain model info
+	if userAgent := r.Header.Get("User-Agent"); userAgent != "" {
+		fmt.Fprintf(os.Stderr, "User-Agent: %s\n", userAgent)
+	}
+	if xModel := r.Header.Get("X-Model"); xModel != "" {
+		fmt.Fprintf(os.Stderr, "X-Model: %s\n", xModel)
+	}
+	if xClaudeModel := r.Header.Get("X-Claude-Model"); xClaudeModel != "" {
+		fmt.Fprintf(os.Stderr, "X-Claude-Model: %s\n", xClaudeModel)
+	}
 
 	// Health check endpoint
 	if r.URL.Path == "/health" {
@@ -127,6 +138,23 @@ func (h *HTTPHandler) processRequest(ctx context.Context, request map[string]int
 			if protocol, ok := params["protocolVersion"].(string); ok {
 				fmt.Fprintf(os.Stderr, "Protocol: %s\n", protocol)
 			}
+			
+			// Check for _meta field which might contain model info
+			if meta, ok := params["_meta"].(map[string]interface{}); ok {
+				fmt.Fprintf(os.Stderr, "Meta fields:\n")
+				for key, value := range meta {
+					fmt.Fprintf(os.Stderr, "  %s: %v\n", key, value)
+				}
+			}
+			
+			// Check capabilities for any model hints
+			if caps, ok := params["capabilities"].(map[string]interface{}); ok {
+				// Check if there's any model-specific info in capabilities
+				if len(caps) > 0 {
+					fmt.Fprintf(os.Stderr, "Capabilities: %v\n", caps)
+				}
+			}
+			
 			fmt.Fprintf(os.Stderr, "===========================\n\n")
 			
 			// Store client info in context for use in tools
