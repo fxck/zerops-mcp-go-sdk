@@ -307,19 +307,24 @@ func handleProjectImport(ctx context.Context, client *sdk.Handler, args map[stri
 		// Provide helpful error guidance
 		errMsg := err.Error()
 		if strings.Contains(errMsg, "serviceStackTypeNotFound") {
-			invalidType := extractInvalidServiceType(yamlContent)
+			// Extract all service types from YAML
+			serviceTypes := extractAllServiceTypes(yamlContent)
 			
-			return shared.ErrorResponse(fmt.Sprintf(
-				"Service type '%s' not found.\n\n"+
-				"IMPORTANT: Always use knowledge base to get correct service types:\n"+
-				"1. knowledge_search('%s') - Find the service\n"+
-				"2. knowledge_get('services/SERVICE_NAME') - Get EXACT type string\n\n"+
-				"The knowledge base will show you:\n"+
-				"- Exact type string to use (e.g., 'php@8.3', 'mongodb@7')\n"+
-				"- Available versions\n"+
-				"- Required configuration options\n\n"+
-				"Never guess service types - always check the knowledge base first!",
-				invalidType, extractServiceName(yamlContent))), nil
+			helpMsg := "Service type not found. One or more of these types is invalid:\n"
+			for _, st := range serviceTypes {
+				helpMsg += fmt.Sprintf("  - %s\n", st)
+			}
+			helpMsg += "\n"
+			helpMsg += "SOLUTION: Check EACH service type in knowledge base:\n"
+			helpMsg += "1. For each service, run: knowledge_search('SERVICE_NAME')\n"
+			helpMsg += "2. Then: knowledge_get('services/SERVICE_NAME') for exact type\n\n"
+			helpMsg += "Common issues:\n"
+			helpMsg += "- PHP uses 'php@8.3' NOT 'php-apache@8.3'\n"
+			helpMsg += "- Some services may not exist (check available services in KB)\n"
+			helpMsg += "- Version numbers must match exactly (e.g., @7 not @7.0)\n\n"
+			helpMsg += "The KB will show 'EXACT TYPE TO USE' for each valid service."
+			
+			return shared.ErrorResponse(helpMsg), nil
 		}
 		return shared.ErrorResponse(fmt.Sprintf("Import failed: %v", err)), nil
 	}
@@ -328,18 +333,21 @@ func handleProjectImport(ctx context.Context, client *sdk.Handler, args map[stri
 	if err != nil {
 		errMsg := err.Error()
 		if strings.Contains(errMsg, "serviceStackTypeNotFound") {
-			invalidType := extractInvalidServiceType(yamlContent)
+			// Extract all service types from YAML
+			serviceTypes := extractAllServiceTypes(yamlContent)
 			
-			return shared.ErrorResponse(fmt.Sprintf(
-				"Service type '%s' not found.\n\n"+
-				"SOLUTION: Use knowledge base to get the correct type:\n"+
-				"1. knowledge_search('%s') - Find available services\n"+
-				"2. knowledge_get('services/SERVICE_NAME') - Get exact configuration\n\n"+
-				"The knowledge base response will include:\n"+
-				"- EXACT TYPE TO USE: The correct type string\n"+
-				"- Example YAML: Ready-to-use configuration\n\n"+
-				"Always check knowledge base before importing - it has 159+ recipes and all service types.",
-				invalidType, extractServiceName(yamlContent))), nil
+			helpMsg := "Service type not found. One or more of these types is invalid:\n"
+			for _, st := range serviceTypes {
+				helpMsg += fmt.Sprintf("  - %s\n", st)
+			}
+			helpMsg += "\n"
+			helpMsg += "SOLUTION: Verify ALL service types in knowledge base:\n"
+			helpMsg += "1. knowledge_search('services') - List all available services\n"
+			helpMsg += "2. For each service: knowledge_get('services/SERVICE_NAME')\n\n"
+			helpMsg += "The KB response shows 'EXACT TYPE TO USE' for valid services.\n"
+			helpMsg += "If a service doesn't exist in KB, it's not available in Zerops."
+			
+			return shared.ErrorResponse(helpMsg), nil
 		}
 		return shared.ErrorResponse(fmt.Sprintf("Failed to parse response: %v", err)), nil
 	}
@@ -350,6 +358,24 @@ func handleProjectImport(ctx context.Context, client *sdk.Handler, args map[stri
 }
 
 // Helper functions
+func extractAllServiceTypes(yamlContent string) []string {
+	// Extract ALL service types from the YAML
+	var types []string
+	lines := strings.Split(yamlContent, "\n")
+	for _, line := range lines {
+		if strings.Contains(line, "type:") {
+			parts := strings.Split(line, ":")
+			if len(parts) > 1 {
+				serviceType := strings.TrimSpace(parts[1])
+				if serviceType != "" {
+					types = append(types, serviceType)
+				}
+			}
+		}
+	}
+	return types
+}
+
 func extractInvalidServiceType(yamlContent string) string {
 	// Extract the full service type that's causing the error
 	lines := strings.Split(yamlContent, "\n")
