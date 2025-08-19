@@ -89,6 +89,15 @@ Or with Claude CLI:
 claude mcp add zerops-remote --transport http --url http://your-server:8080 --header "Authorization: Bearer your-api-key"
 ```
 
+### Testing the Server
+
+```bash
+curl -X POST http://localhost:8080/ \
+  -H "Authorization: Bearer your-api-key" \
+  -H "Content-Type: application/json" \
+  -d '{"jsonrpc":"2.0","method":"tools/list","id":1}'
+```
+
 
 ## Tools
 
