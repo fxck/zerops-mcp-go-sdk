@@ -157,11 +157,18 @@ func handleServiceListShared(ctx context.Context, client *sdk.Handler, args map[
 
 	// Search for services in this project
 	filter := body.EsFilter{
-		Search: []body.EsSearchItem{{
-			Name:     "projectId",
-			Operator: "eq",
-			Value:    types.String(projectID),
-		}},
+		Search: []body.EsSearchItem{
+			{
+				Name:     "projectId",
+				Operator: "eq",
+				Value:    types.String(projectID),
+			},
+			{
+				Name:     "clientId",
+				Operator: "eq",
+				Value:    projectOutput.ClientId.TypedString(),
+			},
+		},
 	}
 
 	resp, err := client.PostServiceStackSearch(ctx, filter)
