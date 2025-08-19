@@ -11,6 +11,7 @@ import (
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"github.com/zerops-mcp-basic/internal/handlers/shared"
+	"github.com/zerops-mcp-basic/internal/instructions"
 	"github.com/zeropsio/zerops-go/sdk"
 	"github.com/zeropsio/zerops-go/sdkBase"
 )
@@ -109,11 +110,12 @@ func (h *HTTPHandler) processRequest(ctx context.Context, request map[string]int
 	id := request["id"]
 	params, _ := request["params"].(map[string]interface{})
 
-	// Log client information if available
+	// Extract client information if available
+	var clientName, clientVersion string
 	if method == "initialize" && params != nil {
 		if clientInfo, ok := params["clientInfo"].(map[string]interface{}); ok {
-			clientName, _ := clientInfo["name"].(string)
-			clientVersion, _ := clientInfo["version"].(string)
+			clientName, _ = clientInfo["name"].(string)
+			clientVersion, _ = clientInfo["version"].(string)
 			clientTitle, _ := clientInfo["title"].(string)
 			
 			fmt.Fprintf(os.Stderr, "\n=== CLIENT IDENTIFICATION (HTTP) ===\n")
@@ -149,7 +151,7 @@ func (h *HTTPHandler) processRequest(ctx context.Context, request map[string]int
 					"name":    "zerops-mcp",
 					"version": "1.0.0",
 				},
-				"instructions": getHTTPInstructions(),
+				"instructions": instructions.GetDynamicInstructions(clientName, clientVersion),
 			},
 		}
 
@@ -214,47 +216,6 @@ func (h *HTTPHandler) getRegisteredTools() []map[string]interface{} {
 	}
 
 	return result
-}
-
-// getHTTPInstructions returns instructions for HTTP mode
-func getHTTPInstructions() string {
-	return `
-# Zerops MCP - HTTP Mode
-
-## CRITICAL: Always Use Knowledge Base First
-Before creating services, ALWAYS search the knowledge base:
-1. knowledge_search("service_type") - Find available services and recipes
-2. knowledge_get("services/mongodb") - Get exact configuration details
-3. knowledge_get("recipe/laravel") - Get complete working templates
-
-## Service Import Workflow
-1. Search KB for service types: knowledge_search("mongodb") 
-2. Get exact type info: knowledge_get("services/mongodb")
-3. Use the EXACT type string from KB (e.g., "mongodb@7" not "mongodb@7.0")
-4. Hostname must be alphanumeric only (no hyphens)
-5. For utility services (Adminer, Mailpit, S3Browser), KEEP buildFromGit field!
-
-## Recipe Import Rules
-Recipe services MUST use standard hostnames:
-- adminer (NOT databasewizard or mycustomname)
-- mailpit (NOT emailtester)
-- s3browser (NOT s3manager)
-Example:
-  hostname: adminer  # REQUIRED name for recipe to work
-  buildFromGit: https://github.com/zeropsio/recipe-adminer
-
-## Common Service Types (always verify with KB first)
-- postgresql@16, mariadb@11, mongodb@7
-- nodejs@20, python@3.11, php@8.3 (NOT php-apache!)
-- valkey@7, keydb@6, elasticsearch@8
-
-## Error Recovery
-If you get "serviceStackTypeNotFound":
-1. Use knowledge_search to find correct type
-2. Check hostname has no special characters
-3. Verify mode is "HA" or "NON_HA" (for databases)
-
-Remember: Knowledge base has 159+ working recipes - use them!`
 }
 
 // extractBearerToken extracts the token from "Bearer <token>" format
