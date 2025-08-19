@@ -18,13 +18,13 @@ import (
 func RegisterKnowledge() {
 	shared.GlobalRegistry.Register(&shared.ToolDefinition{
 		Name:        "knowledge_search",
-		Description: "Search Zerops knowledge base API for services, recipes, and deployment patterns",
+		Description: "ALWAYS USE THIS FIRST! Search Zerops knowledge base for service types, recipes, and configurations. Returns exact service type strings needed for import.",
 		InputSchema: map[string]interface{}{
 			"type": "object",
 			"properties": map[string]interface{}{
 				"query": map[string]interface{}{
 					"type":        "string",
-					"description": "Search terms: framework names (laravel, django), services (nodejs, postgresql), or features (database, cache)",
+					"description": "Search: service names (mongodb, postgresql), frameworks (laravel, django), or 'list services' for all available",
 				},
 				"limit": map[string]interface{}{
 					"type":        "integer",
@@ -38,13 +38,13 @@ func RegisterKnowledge() {
 
 	shared.GlobalRegistry.Register(&shared.ToolDefinition{
 		Name:        "knowledge_get",
-		Description: "Get full content of a specific knowledge item from the API by its semantic ID",
+		Description: "Get EXACT configuration for a service or complete recipe. Use this to get the correct 'type' string for project_import. Returns working YAML examples.",
 		InputSchema: map[string]interface{}{
 			"type": "object",
 			"properties": map[string]interface{}{
 				"id": map[string]interface{}{
 					"type":        "string",
-					"description": "Knowledge ID (format: {type}/{name}, e.g., 'recipe/laravel' or 'service/nodejs')",
+					"description": "Knowledge ID from search results. Format: 'services/mongodb' or 'recipe/laravel-minimal'",
 				},
 			},
 			"required": []string{"id"},
@@ -193,10 +193,111 @@ func handleKnowledgeGet(ctx context.Context, client *sdk.Handler, args map[strin
 	message.WriteString(fmt.Sprintf("Knowledge: %s\n", formatName(knowledge.Name)))
 	message.WriteString(fmt.Sprintf("Type: %s\n", knowledge.Type))
 	message.WriteString(fmt.Sprintf("ID: %s\n\n", knowledge.ID))
-	message.WriteString("Content:\n")
+	
+	// If it's a recipe, extract and show ready-to-use YAML
+	if strings.HasPrefix(knowledge.ID, "recipe/") {
+		yamlExample := extractYAMLFromRecipe(knowledge.Content)
+		if yamlExample != "" {
+			message.WriteString("READY TO USE YAML for project_import:\n")
+			message.WriteString("```yaml\n")
+			message.WriteString(yamlExample)
+			message.WriteString("\n```\n\n")
+		}
+	}
+	
+	// If it's a service, show the exact type string to use
+	if strings.HasPrefix(knowledge.ID, "services/") {
+		serviceType := extractServiceType(knowledge.Content)
+		if serviceType != "" {
+			message.WriteString(fmt.Sprintf("EXACT TYPE TO USE: %s\n\n", serviceType))
+			message.WriteString("Example YAML:\n```yaml\nservices:\n")
+			message.WriteString(fmt.Sprintf("  - hostname: %s\n", strings.Split(serviceType, "@")[0]))
+			message.WriteString(fmt.Sprintf("    type: %s\n", serviceType))
+			if strings.Contains(prettyJSON.String(), "\"modes\"") {
+				message.WriteString("    mode: NON_HA  # or HA for high availability\n")
+			}
+			message.WriteString("```\n\n")
+		}
+	}
+	
+	message.WriteString("Full Content:\n")
 	message.WriteString("```json\n")
 	message.WriteString(prettyJSON.String())
 	message.WriteString("\n```")
 
 	return shared.TextResponse(message.String()), nil
 }
+
+// extractYAMLFromRecipe extracts ready-to-use YAML from recipe content
+func extractYAMLFromRecipe(content interface{}) string {
+	// Content is already parsed as interface{}, cast it
+	recipe, ok := content.(map[string]interface{})
+	if !ok {
+		return ""
+	}
+	
+	// Look for services array in the recipe
+	if services, ok := recipe["services"].([]interface{}); ok {
+		// Convert to YAML format
+		yaml := "services:\n"
+		for _, service := range services {
+			if svc, ok := service.(map[string]interface{}); ok {
+				yaml += fmt.Sprintf("  - hostname: %v\n", svc["hostname"])
+				yaml += fmt.Sprintf("    type: %v\n", svc["type"])
+				
+				// Add optional fields if present
+				if mode, ok := svc["mode"]; ok {
+					yaml += fmt.Sprintf("    mode: %v\n", mode)
+				}
+				if enabled, ok := svc["enableSubdomainAccess"]; ok && enabled == true {
+					yaml += "    enableSubdomainAccess: true\n"
+				}
+				if minContainers, ok := svc["minContainers"]; ok {
+					yaml += fmt.Sprintf("    minContainers: %v\n", minContainers)
+				}
+				if maxContainers, ok := svc["maxContainers"]; ok {
+					yaml += fmt.Sprintf("    maxContainers: %v\n", maxContainers)
+				}
+			}
+		}
+		return yaml
+	}
+	return ""
+}
+
+// extractServiceType extracts the exact service type string from service content
+func extractServiceType(content interface{}) string {
+	// Content is already parsed as interface{}, cast it
+	service, ok := content.(map[string]interface{})
+	if !ok {
+		return ""
+	}
+	
+	// Look for type field
+	if typeField, ok := service["type"].(string); ok {
+		// Look for current/recommended version
+		if versions, ok := service["versions"].([]interface{}); ok {
+			for _, v := range versions {
+				if version, ok := v.(map[string]interface{}); ok {
+					if recommended, ok := version["recommended"].(bool); ok && recommended {
+						if ver, ok := version["version"].(string); ok {
+							return fmt.Sprintf("%s@%s", typeField, ver)
+						}
+					}
+				}
+			}
+			// If no recommended, use first current version
+			for _, v := range versions {
+				if version, ok := v.(map[string]interface{}); ok {
+					if status, ok := version["status"].(string); ok && status == "current" {
+						if ver, ok := version["version"].(string); ok {
+							return fmt.Sprintf("%s@%s", typeField, ver)
+						}
+					}
+				}
+			}
+		}
+	}
+	return ""
+}
+

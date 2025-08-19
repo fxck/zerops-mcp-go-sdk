@@ -89,17 +89,17 @@ func RegisterProjects() {
 
 	shared.GlobalRegistry.Register(&shared.ToolDefinition{
 		Name:        "project_import",
-		Description: "Import services to a project using YAML configuration",
+		Description: "Import services using YAML. IMPORTANT: Use knowledge_search FIRST to find correct service types, then knowledge_get for exact configuration.",
 		InputSchema: map[string]interface{}{
 			"type": "object",
 			"properties": map[string]interface{}{
 				"project_id": map[string]interface{}{
 					"type":        "string",
-					"description": "Project ID (22-char string like 'ePbuhAuFRTWx2tE3VCGBgQ')",
+					"description": "Project ID (22-char string from project_list)",
 				},
 				"yaml": map[string]interface{}{
 					"type":        "string",
-					"description": "Zerops YAML configuration for services",
+					"description": "YAML from knowledge_get or with exact types. Rules: hostname=alphanumeric, type=exact from KB (e.g. mongodb@7), mode=HA|NON_HA",
 				},
 			},
 			"required": []string{"project_id", "yaml"},
@@ -304,11 +304,37 @@ func handleProjectImport(ctx context.Context, client *sdk.Handler, args map[stri
 
 	resp, err := client.PostServiceStackImport(ctx, importBody)
 	if err != nil {
+		// Provide helpful error guidance
+		errMsg := err.Error()
+		if strings.Contains(errMsg, "serviceStackTypeNotFound") {
+			return shared.ErrorResponse(fmt.Sprintf(
+				"Service type not found. Common issues:\n"+
+				"1. Invalid service type - Use knowledge_search('service_name') to find correct type\n"+
+				"2. MongoDB: Use 'mongodb@7' not 'mongodb@7.0'\n"+
+				"3. Hostname: Use alphanumeric only (e.g., 'mongodb7' not 'mongodb')\n"+
+				"4. Check mode: Must be 'HA' or 'NON_HA' for databases\n\n"+
+				"Example: knowledge_get('services/mongodb') for MongoDB configuration\n"+
+				"Original error: %v", err)), nil
+		}
 		return shared.ErrorResponse(fmt.Sprintf("Import failed: %v", err)), nil
 	}
 
 	_, err = resp.Output()
 	if err != nil {
+		errMsg := err.Error()
+		if strings.Contains(errMsg, "serviceStackTypeNotFound") {
+			return shared.ErrorResponse(fmt.Sprintf(
+				"Service configuration error. To fix:\n"+
+				"1. Run: knowledge_search('%s') to find the service\n"+
+				"2. Run: knowledge_get('services/SERVICE_NAME') for exact configuration\n"+
+				"3. Use the exact 'type' value from the knowledge base\n\n"+
+				"Common corrections:\n"+
+				"- valkey@7 (not redis@7)\n"+
+				"- keydb@6 (not keydb@6.0)\n"+
+				"- php-apache@8.3 (not php@8.3)\n\n"+
+				"Original error: %v", 
+				extractServiceName(yamlContent), err)), nil
+		}
 		return shared.ErrorResponse(fmt.Sprintf("Failed to parse response: %v", err)), nil
 	}
 
@@ -318,6 +344,25 @@ func handleProjectImport(ctx context.Context, client *sdk.Handler, args map[stri
 }
 
 // Helper functions
+func extractServiceName(yamlContent string) string {
+	// Try to extract first service type from YAML for better error hints
+	lines := strings.Split(yamlContent, "\n")
+	for _, line := range lines {
+		if strings.Contains(line, "type:") {
+			parts := strings.Split(line, ":")
+			if len(parts) > 1 {
+				serviceName := strings.TrimSpace(parts[1])
+				// Extract base service name (e.g., "mongodb" from "mongodb@7")
+				if idx := strings.Index(serviceName, "@"); idx > 0 {
+					return serviceName[:idx]
+				}
+				return serviceName
+			}
+		}
+	}
+	return "service"
+}
+
 func getProjectsForClient(ctx context.Context, client *sdk.Handler, clientUser output.ClientUserExtra) []projectInfo {
 	filter := body.EsFilter{
 		Search: []body.EsSearchItem{{
