@@ -52,14 +52,24 @@ The latest release includes pre-built binaries for:
 
 Download from [Releases](https://github.com/krls2020/zerops-mcp-go-sdk/releases)
 
+## Transport Modes
+
+The Zerops MCP server supports two transport modes:
+
+### 1. Stdio Mode (Default)
+Traditional stdio-based communication for local installations with Claude Desktop and other MCP clients.
+
+### 2. HTTP Mode (NEW)
+Streamable HTTP transport with SSE (Server-Sent Events) for cloud deployments and remote access.
+
 ## Configuration
 
 ### Prerequisites
 
 - Zerops API key from [Dashboard](https://app.zerops.io/settings/token-management)
-- zcli for deployment operations
+- zcli for deployment operations (for stdio mode)
 
-### Claude Desktop Setup
+### Stdio Mode Setup (Claude Desktop)
 
 #### Recommended Method
 
@@ -96,6 +106,91 @@ Alternatively, manually edit your Claude Desktop config file:
 }
 ```
 
+### HTTP Mode Setup
+
+The HTTP mode allows the server to be deployed as a web service and accessed remotely.
+
+#### Starting the Server
+
+```bash
+# Using command-line flags
+ZEROPS_API_KEY="your-api-key" ./zerops-mcp -transport http -host 0.0.0.0 -port 8080
+
+# Using environment variables
+export ZEROPS_API_KEY="your-api-key"
+export MCP_TRANSPORT="http"
+export MCP_HTTP_HOST="0.0.0.0"
+export MCP_HTTP_PORT="8080"
+./zerops-mcp
+```
+
+#### Configuration Options
+
+| Option | Flag | Environment Variable | Default | Description |
+|--------|------|---------------------|---------|-------------|
+| Transport Mode | `-transport` | `MCP_TRANSPORT` | `stdio` | Transport protocol (`stdio` or `http`) |
+| HTTP Host | `-host` | `MCP_HTTP_HOST` | `0.0.0.0` | HTTP server bind address |
+| HTTP Port | `-port` | `MCP_HTTP_PORT` | `8080` | HTTP server port |
+
+#### Authentication
+
+HTTP mode uses Bearer token authentication with your ZEROPS_API_KEY:
+
+```bash
+Authorization: Bearer your-zerops-api-key
+```
+
+#### Endpoints
+
+- `POST /mcp` - Main MCP endpoint for JSON-RPC requests
+- `GET /health` - Health check endpoint (no auth required)
+
+#### Claude Desktop Configuration for HTTP Mode
+
+```bash
+claude mcp add --transport http zerops https://your-server.com/mcp \
+  --header "Authorization: Bearer your-zerops-api-key"
+```
+
+Or manually in config:
+
+```json
+{
+  "mcpServers": {
+    "zerops-http": {
+      "transport": "http",
+      "url": "https://your-server.com/mcp",
+      "headers": {
+        "Authorization": "Bearer your-zerops-api-key"
+      }
+    }
+  }
+}
+```
+
+#### Example Deployment on Zerops
+
+The server can be deployed on Zerops platform itself:
+
+```bash
+# Deploy to https://mcp-16cb-8080.prg1.zerops.app/
+ZEROPS_API_KEY="your-api-key" MCP_TRANSPORT="http" MCP_HTTP_PORT="8080" ./zerops-mcp
+```
+
+#### Testing HTTP Mode
+
+```bash
+# Health check
+curl https://your-server.com/health
+
+# MCP request with authentication
+curl -X POST https://your-server.com/mcp \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer your-zerops-api-key" \
+  -H "Accept: application/json, text/event-stream" \
+  -d '{"jsonrpc":"2.0","method":"initialize","params":{},"id":1}'
+```
+
 ## Architecture
 
 ### Project Structure
@@ -103,7 +198,7 @@ Alternatively, manually edit your Claude Desktop config file:
 ```
 zerops-mcp-go-sdk/
 ├── cmd/mcp-server/         # Main entry point
-│   └── main.go            # Server initialization
+│   └── main.go            # Server initialization (stdio/HTTP)
 ├── internal/
 │   ├── handlers/          # MCP protocol handlers
 │   │   ├── register.go    # Tool registration
@@ -113,8 +208,10 @@ zerops-mcp-go-sdk/
 │   │       ├── services.go    # Service operations
 │   │       ├── deploy.go      # Deployment tools
 │   │       └── knowledge.go   # Knowledge base client
-│   └── instructions/      # Workflow instructions
-│       └── workflow.go    # Built-in guidance
+│   ├── instructions/      # Workflow instructions
+│   │   └── workflow.go    # Built-in guidance
+│   └── transport/         # Transport implementations
+│       └── http.go        # HTTP/SSE transport
 ├── tools/                 # Build scripts
 │   └── build.sh          # Cross-platform builds
 ├── install.sh            # Unix installation
@@ -126,8 +223,9 @@ zerops-mcp-go-sdk/
 
 **MCP Server Implementation**
 - Uses the `github.com/modelcontextprotocol/go-sdk` library
-- Implements JSON-RPC 2.0 protocol over stdio
+- Implements JSON-RPC 2.0 protocol over stdio and HTTP/SSE
 - Provides tool discovery and execution
+- Supports both local (stdio) and remote (HTTP) transport modes
 
 **Tool Categories**
 - **Authentication**: API key validation

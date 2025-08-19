@@ -1,0 +1,46 @@
+zerops:
+  - setup: mcp
+    # ==== how to build your application ====
+    build:
+      # what technologies should the build
+      # container be based on (can be an array)
+      base: go@1
+
+      # build your applicationś
+      buildCommands:
+        # Download dependencies
+        - go mod download
+        # Build the MCP server binary from the correct path
+        - go build -o zerops-mcp ./cmd/mcp-server/main.go
+        # Make it executable
+        - chmod +x zerops-mcp
+
+      # select which files / folders to deploy
+      # after the build successfully finished
+      deployFiles: zerops-mcp
+
+    # ==== how to run your application ====
+    run:
+      # what technology should the runtime
+      # container be based on, can be extended
+      # in `run.prepareCommands` using
+      # `sudo zsc install nodejs@20`
+      base: go@1
+
+      # what ports your app listens on
+      # and whether it supports http traffic
+      ports:
+        - port: 8080
+          httpSupport: true
+      
+      # environment variables
+      envVariables:
+        PUBLIC_URL: https://mcp-16cb-8080.prg1.zerops.app
+        MCP_TRANSPORT: http
+        MCP_HOST: 0.0.0.0
+        MCP_PORT: 8080
+
+      # how to start your application
+      # NOTE: Using --skip-validation for demo purposes
+      # In production, set ZEROPS_API_KEY environment variable instead
+      start: ./zerops-mcp --transport http --host 0.0.0.0 --port 8080 --skip-validation
