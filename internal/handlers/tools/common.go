@@ -2,7 +2,7 @@ package tools
 
 import (
 	"fmt"
-	
+
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 

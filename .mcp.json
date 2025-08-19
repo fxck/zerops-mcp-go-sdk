@@ -1,0 +1,170 @@
+{
+  "name": "zerops-mcp",
+  "description": "Zerops MCP Server - Manage your Zerops infrastructure with AI",
+  "version": "1.0.0",
+  "author": "Zerops Team",
+  "license": "MIT",
+  
+  "transports": {
+    "stdio": {
+      "description": "Local stdio transport for Claude Desktop",
+      "command": "${ZEROPS_MCP_PATH:-./zerops-mcp}",
+      "args": ["--transport", "stdio"],
+      "env": {
+        "ZEROPS_API_KEY": "${ZEROPS_API_KEY}",
+        "ZEROPS_DEBUG": "${ZEROPS_DEBUG:-false}"
+      }
+    },
+    
+    "http": {
+      "description": "HTTP transport for remote/cloud deployment",
+      "url": "${ZEROPS_MCP_URL:-https://mcp-16cb-8080.prg1.zerops.app/}",
+      "headers": {
+        "Authorization": "Bearer ${ZEROPS_API_KEY}",
+        "X-Client-Version": "${CLIENT_VERSION:-1.0.0}"
+      }
+    },
+    
+    "http-local": {
+      "description": "HTTP transport for local development",
+      "url": "${ZEROPS_MCP_LOCAL_URL:-http://localhost:8080/}",
+      "headers": {
+        "Authorization": "Bearer ${ZEROPS_API_KEY}"
+      }
+    }
+  },
+  
+  "configurations": {
+    "development": {
+      "transport": "stdio",
+      "env": {
+        "ZEROPS_API_KEY": "${ZEROPS_DEV_API_KEY:-dev-key-placeholder}",
+        "ZEROPS_MCP_PATH": "${HOME}/.local/bin/zerops-mcp",
+        "ZEROPS_DEBUG": "true",
+        "LOG_LEVEL": "${LOG_LEVEL:-debug}"
+      }
+    },
+    
+    "production": {
+      "transport": "http",
+      "env": {
+        "ZEROPS_API_KEY": "${ZEROPS_PROD_API_KEY}",
+        "ZEROPS_MCP_URL": "https://mcp-16cb-8080.prg1.zerops.app/",
+        "CLIENT_VERSION": "1.0.0"
+      }
+    },
+    
+    "staging": {
+      "transport": "http",
+      "env": {
+        "ZEROPS_API_KEY": "${ZEROPS_STAGING_API_KEY}",
+        "ZEROPS_MCP_URL": "${ZEROPS_STAGING_URL:-https://staging-mcp.zerops.app/}",
+        "CLIENT_VERSION": "1.0.0-staging"
+      }
+    },
+    
+    "local-test": {
+      "transport": "http-local",
+      "env": {
+        "ZEROPS_API_KEY": "${ZEROPS_TEST_API_KEY:-test-key}",
+        "ZEROPS_MCP_LOCAL_URL": "http://localhost:${MCP_PORT:-8080}/"
+      }
+    }
+  },
+  
+  "tools": {
+    "categories": {
+      "authentication": {
+        "tools": ["auth_validate", "auth_show"],
+        "description": "Authentication and account management"
+      },
+      "projects": {
+        "tools": ["project_list", "project_create", "project_delete", "project_search", "project_import"],
+        "description": "Project management operations"
+      },
+      "services": {
+        "tools": ["service_list", "service_info", "service_delete", "service_enable_subdomain", "service_disable_subdomain", "service_start", "service_stop"],
+        "description": "Service lifecycle management"
+      },
+      "deployment": {
+        "tools": ["deploy_validate", "deploy_push"],
+        "description": "Application deployment operations"
+      },
+      "knowledge": {
+        "tools": ["knowledge_search", "knowledge_get"],
+        "description": "Access deployment recipes and patterns"
+      }
+    }
+  },
+  
+  "settings": {
+    "timeout": "${MCP_TIMEOUT:-30000}",
+    "max_retries": "${MCP_MAX_RETRIES:-3}",
+    "log_level": "${LOG_LEVEL:-info}",
+    "cache_enabled": "${MCP_CACHE_ENABLED:-true}",
+    "cache_ttl": "${MCP_CACHE_TTL:-300}"
+  },
+  
+  "paths": {
+    "binary": {
+      "darwin-arm64": "${HOME}/.local/bin/zerops-mcp-darwin-arm64",
+      "darwin-amd64": "${HOME}/.local/bin/zerops-mcp-darwin-amd64",
+      "linux-amd64": "${HOME}/.local/bin/zerops-mcp-linux-amd64",
+      "windows-amd64": "${USERPROFILE}\\.local\\bin\\zerops-mcp-win-x64.exe"
+    },
+    "config": {
+      "claude_desktop": {
+        "macos": "${HOME}/Library/Application Support/Claude/claude_desktop_config.json",
+        "linux": "${HOME}/.config/Claude/claude_desktop_config.json",
+        "windows": "${APPDATA}\\Claude\\claude_desktop_config.json"
+      }
+    },
+    "logs": "${MCP_LOG_DIR:-${HOME}/.local/share/zerops-mcp/logs}",
+    "cache": "${MCP_CACHE_DIR:-${HOME}/.cache/zerops-mcp}"
+  },
+  
+  "api_endpoints": {
+    "zerops": {
+      "production": "${ZEROPS_API_URL:-https://api.app-prg1.zerops.io}",
+      "staging": "${ZEROPS_STAGING_API_URL:-https://api.staging.zerops.io}",
+      "development": "${ZEROPS_DEV_API_URL:-http://localhost:3000}"
+    },
+    "knowledge_base": {
+      "url": "${KNOWLEDGE_API_URL:-https://kbapi-167b-8080.prg1.zerops.app}"
+    }
+  },
+  
+  "deployment": {
+    "zcli": {
+      "required_for": ["stdio"],
+      "install_command": "npm i -g @zerops/zcli",
+      "binary_path": "${ZCLI_PATH:-zcli}",
+      "config_path": "${HOME}/.zerops/config.json"
+    }
+  },
+  
+  "claude_desktop_config": {
+    "stdio_example": {
+      "mcpServers": {
+        "zerops": {
+          "command": "${ZEROPS_MCP_PATH:-~/.local/bin/zerops-mcp}",
+          "args": ["--transport", "stdio"],
+          "env": {
+            "ZEROPS_API_KEY": "${ZEROPS_API_KEY}"
+          }
+        }
+      }
+    },
+    "http_example": {
+      "mcpServers": {
+        "zerops-http": {
+          "transport": "http",
+          "url": "${ZEROPS_MCP_URL:-https://mcp-16cb-8080.prg1.zerops.app/}",
+          "headers": {
+            "Authorization": "Bearer ${ZEROPS_API_KEY}"
+          }
+        }
+      }
+    }
+  }
+}

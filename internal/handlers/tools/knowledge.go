@@ -120,15 +120,15 @@ func registerKnowledgeSearch(server *mcp.Server) {
 			message += fmt.Sprintf("%d. %s\n", i+1, formatName(result.Name))
 			message += fmt.Sprintf("   ID: %s\n", result.ID)
 			message += fmt.Sprintf("   Type: %s\n", result.Type)
-			
+
 			if result.Summary != "" {
 				message += fmt.Sprintf("   Summary: %s\n", result.Summary)
 			}
-			
+
 			if len(result.Tags) > 0 {
 				message += fmt.Sprintf("   Tags: %s\n", strings.Join(result.Tags, ", "))
 			}
-			
+
 			message += fmt.Sprintf("   Relevance: %.0f%%\n\n", result.Score*100)
 		}
 
@@ -161,7 +161,7 @@ func registerKnowledgeGet(server *mcp.Server) {
 		// Call the API
 		httpClient := &http.Client{Timeout: 10 * time.Second}
 		url := fmt.Sprintf("%s/api/v1/knowledge/%s", knowledgeAPIURL, args.ID)
-		
+
 		req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
 		if err != nil {
 			return errorResult(fmt.Errorf("failed to create request: %w", err)), nil
@@ -218,12 +218,12 @@ func formatName(name string) string {
 	parts := strings.FieldsFunc(name, func(r rune) bool {
 		return r == '-' || r == '_' || r == '.'
 	})
-	
+
 	for i, part := range parts {
 		if len(part) > 0 {
 			parts[i] = strings.ToUpper(string(part[0])) + strings.ToLower(part[1:])
 		}
 	}
-	
+
 	return strings.Join(parts, " ")
 }

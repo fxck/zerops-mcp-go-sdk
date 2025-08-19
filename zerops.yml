@@ -33,14 +33,6 @@ zerops:
         - port: 8080
           httpSupport: true
       
-      # environment variables
-      envVariables:
-        PUBLIC_URL: https://mcp-16cb-8080.prg1.zerops.app
-        MCP_TRANSPORT: http
-        MCP_HOST: 0.0.0.0
-        MCP_PORT: 8080
-
       # how to start your application
-      # NOTE: Using --skip-validation for demo purposes
-      # In production, set ZEROPS_API_KEY environment variable instead
-      start: ./zerops-mcp --transport http --host 0.0.0.0 --port 8080 --skip-validation
+      # This configuration REQUIRES clients to provide their API key via Authorization header
+      start: ./zerops-mcp --transport http --host 0.0.0.0 --port 8080

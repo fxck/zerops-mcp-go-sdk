@@ -133,11 +133,11 @@ func registerProjectCreate(server *mcp.Server, client *sdk.Handler) {
 			Name:             types.NewString(args.Name),
 			ClientId:         clientId,
 			TagList:          types.NewStringArray([]string{}), // Empty tag list
-			EnvVariables:     body.PostProjectEnvVariables{},    // Empty env variables
+			EnvVariables:     body.PostProjectEnvVariables{},   // Empty env variables
 			PublicIpV4Shared: types.NewBool(true),              // Enable shared public IP
 			Location:         types.StringNull{},               // Leave location empty - API will use default region
 		}
-		
+
 		// Note: The Location field should remain empty (StringNull{})
 		// Setting it to "prg1" or any value causes "[400][locationNotFound] Location not found"
 		// The API automatically uses the default region when Location is not set
@@ -283,11 +283,11 @@ func formatProject(index int, p projectInfo) string {
 	result += fmt.Sprintf("   ID: %s\n", string(p.Project.Id))
 	result += fmt.Sprintf("   Organization: %s\n", p.OrgName)
 	result += fmt.Sprintf("   Status: %s\n", string(p.Project.Status))
-	
+
 	if desc, ok := p.Project.Description.Get(); ok {
 		result += fmt.Sprintf("   Description: %s\n", desc.Native())
 	}
-	
+
 	result += fmt.Sprintf("   Created: %s\n\n", p.Project.Created.Format("2006-01-02 15:04:05"))
 	return result
 }

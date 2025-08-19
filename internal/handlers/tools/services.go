@@ -79,9 +79,9 @@ func registerServiceList(server *mcp.Server, client *sdk.Handler) {
 		}
 
 		// Format output
-		message := fmt.Sprintf("Services in project '%s' (%d):\n\n", 
+		message := fmt.Sprintf("Services in project '%s' (%d):\n\n",
 			projectOutput.Name.Native(), len(searchOutput.Items))
-		
+
 		for i, service := range searchOutput.Items {
 			message += formatService(i+1, service)
 		}
@@ -140,8 +140,8 @@ func registerServiceInfo(server *mcp.Server, client *sdk.Handler) {
 		// Add subdomain URL if enabled
 		if output.SubdomainAccess.Native() {
 			// Construct subdomain URL based on Zerops pattern: {service}-{project}.prg1.zerops.app
-			subdomainURL := fmt.Sprintf("https://%s-%s.prg1.zerops.app", 
-				output.Name.Native(), 
+			subdomainURL := fmt.Sprintf("https://%s-%s.prg1.zerops.app",
+				output.Name.Native(),
 				output.Project.Name.Native())
 			message += fmt.Sprintf("\nPublic URL: %s\n", subdomainURL)
 		}
@@ -150,7 +150,7 @@ func registerServiceInfo(server *mcp.Server, client *sdk.Handler) {
 		if len(output.Ports) > 0 {
 			message += "\nPorts:\n"
 			for _, port := range output.Ports {
-				message += fmt.Sprintf("  • %d (%s)\n", 
+				message += fmt.Sprintf("  • %d (%s)\n",
 					port.Port.Native(), port.Scheme.Native())
 			}
 		}
@@ -189,7 +189,7 @@ func registerServiceDelete(server *mcp.Server, client *sdk.Handler) {
 			return errorResult(fmt.Errorf("failed to parse response: %w", err)), nil
 		}
 
-		return textResult(fmt.Sprintf("Service deletion initiated\nProcess ID: %s", 
+		return textResult(fmt.Sprintf("Service deletion initiated\nProcess ID: %s",
 			string(output.Id))), nil
 	})
 }
@@ -223,7 +223,7 @@ func registerServiceEnableSubdomain(server *mcp.Server, client *sdk.Handler) {
 		// Get service info to show the new subdomain
 		serviceResp, err := client.GetServiceStack(ctx, servicePath)
 		if err != nil {
-			return textResult(fmt.Sprintf("Subdomain enabled\nProcess ID: %s\n\nNote: Use 'service_info' to see the subdomain URL once ready.", 
+			return textResult(fmt.Sprintf("Subdomain enabled\nProcess ID: %s\n\nNote: Use 'service_info' to see the subdomain URL once ready.",
 				string(output.Id))), nil
 		}
 
@@ -235,12 +235,12 @@ func registerServiceEnableSubdomain(server *mcp.Server, client *sdk.Handler) {
 		message := fmt.Sprintf("Subdomain access enabled\n\n")
 		message += fmt.Sprintf("Service: %s\n", serviceOutput.Name.Native())
 		message += fmt.Sprintf("Process ID: %s\n", string(output.Id))
-		
+
 		// Show the subdomain URL
 		if serviceOutput.SubdomainAccess.Native() || true { // Will be enabled after this operation
 			// Construct subdomain URL based on Zerops pattern: {service}-{project}.prg1.zerops.app
-			subdomainURL := fmt.Sprintf("https://%s-%s.prg1.zerops.app", 
-				serviceOutput.Name.Native(), 
+			subdomainURL := fmt.Sprintf("https://%s-%s.prg1.zerops.app",
+				serviceOutput.Name.Native(),
 				serviceOutput.Project.Name.Native())
 			message += fmt.Sprintf("\nPublic URL: %s\n", subdomainURL)
 			message += "\nNote: It may take a moment for the subdomain to become active."
@@ -254,18 +254,18 @@ func registerServiceEnableSubdomain(server *mcp.Server, client *sdk.Handler) {
 func formatService(index int, service interface{}) string {
 	// Use reflection to access fields since the exact type may vary
 	v := reflect.ValueOf(service)
-	
+
 	// Get required fields
 	name := v.FieldByName("Name")
 	id := v.FieldByName("Id")
 	status := v.FieldByName("Status")
 	created := v.FieldByName("Created")
 	serviceStackTypeInfo := v.FieldByName("ServiceStackTypeInfo")
-	
+
 	if !name.IsValid() || !id.IsValid() || !status.IsValid() || !created.IsValid() {
 		return fmt.Sprintf("%d. Service (unable to read details)\n\n", index)
 	}
-	
+
 	// Extract name
 	nameStr := ""
 	if nameMethod := name.MethodByName("Native"); nameMethod.IsValid() {
@@ -274,7 +274,7 @@ func formatService(index int, service interface{}) string {
 			nameStr = results[0].String()
 		}
 	}
-	
+
 	// Extract ID - handle UUID type properly
 	idStr := ""
 	if idStringer, ok := id.Interface().(fmt.Stringer); ok {
@@ -290,10 +290,10 @@ func formatService(index int, service interface{}) string {
 			idStr = fmt.Sprintf("%v", id.Interface())
 		}
 	}
-	
+
 	// Extract status
 	statusStr := fmt.Sprintf("%v", status.Interface())
-	
+
 	// Extract type name
 	typeStr := "Unknown"
 	if serviceStackTypeInfo.IsValid() {
@@ -306,7 +306,7 @@ func formatService(index int, service interface{}) string {
 			}
 		}
 	}
-	
+
 	// Extract created date
 	createdStr := ""
 	if formatMethod := created.MethodByName("Format"); formatMethod.IsValid() {
@@ -315,7 +315,7 @@ func formatService(index int, service interface{}) string {
 			createdStr = results[0].String()
 		}
 	}
-	
+
 	return fmt.Sprintf("%d. SERVICE: %s\n"+
 		"   SERVICE_ID: %s  <-- Use this ID for deploy_push\n"+
 		"   Type: %s\n"+

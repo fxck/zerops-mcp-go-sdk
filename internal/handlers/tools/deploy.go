@@ -113,16 +113,16 @@ func registerDeployPush(server *mcp.Server, client *sdk.Handler) {
 				"Expected: 22-character ID like 'ePbuhAuFRTWx2tE3VCGBgQ'\n"+
 				"Got: %d characters\n\n"+
 				"Use 'service_list' to get the correct service ID.\n"+
-				"Note: Service ID is NOT the service name (like 'kbapi' or 'api').", 
+				"Note: Service ID is NOT the service name (like 'kbapi' or 'api').",
 				args.ServiceID, len(args.ServiceID))), nil
 		}
 
-		// Validate project ID format 
+		// Validate project ID format
 		if len(args.ProjectID) < 20 || len(args.ProjectID) > 24 {
 			return textResult(fmt.Sprintf("Error: Invalid project ID format: '%s'\n\n"+
 				"Expected: 22-character ID\n"+
 				"Got: %d characters\n\n"+
-				"Use 'project_list' to get the correct project ID.", 
+				"Use 'project_list' to get the correct project ID.",
 				args.ProjectID, len(args.ProjectID))), nil
 		}
 
@@ -158,10 +158,10 @@ func registerDeployPush(server *mcp.Server, client *sdk.Handler) {
 		// Login to zcli if needed
 		loginCmd := exec.CommandContext(ctx, "zcli", "login", "--token", apiKey)
 		_, _ = loginCmd.CombinedOutput()
-		
+
 		// Build zcli command with both projectId and serviceId to avoid interactive prompts
 		cmdArgs := []string{"push"}
-		
+
 		// Add BOTH project ID and service ID to avoid prompts
 		cmdArgs = append(cmdArgs, "--projectId", args.ProjectID)
 		cmdArgs = append(cmdArgs, "--serviceId", args.ServiceID)
@@ -170,7 +170,7 @@ func registerDeployPush(server *mcp.Server, client *sdk.Handler) {
 		if args.ConfigPath != nil && *args.ConfigPath != "" {
 			cmdArgs = append(cmdArgs, "--zeropsYamlPath", *args.ConfigPath)
 		}
-		
+
 		// Add working directory if not current
 		if workDir != "." && workDir != "" {
 			cmdArgs = append(cmdArgs, "--workingDir", workDir)
@@ -181,7 +181,7 @@ func registerDeployPush(server *mcp.Server, client *sdk.Handler) {
 		cmd.Dir = workDir
 
 		// Set environment with token
-		cmd.Env = append(os.Environ(), 
+		cmd.Env = append(os.Environ(),
 			fmt.Sprintf("ZEROPS_TOKEN=%s", apiKey))
 
 		output, err := cmd.CombinedOutput()
@@ -197,9 +197,9 @@ func registerDeployPush(server *mcp.Server, client *sdk.Handler) {
 		}
 
 		// Parse output for success indicators
-		if strings.Contains(outputStr, "Deploy finished") || 
-		   strings.Contains(outputStr, "successfully") ||
-		   strings.Contains(outputStr, "Build completed") {
+		if strings.Contains(outputStr, "Deploy finished") ||
+			strings.Contains(outputStr, "successfully") ||
+			strings.Contains(outputStr, "Build completed") {
 			return textResult(fmt.Sprintf("Deployment successful\n\n"+
 				"Service ID: %s\n\n"+
 				"Output:\n%s", args.ServiceID, outputStr)), nil

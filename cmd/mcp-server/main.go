@@ -1,4 +1,4 @@
-// Zerops MCP Server - Supports both stdio and HTTP transports
+// Zerops MCP Server - Supports both stdio and HTTP transports with shared tool logic
 package main
 
 import (
@@ -28,30 +28,16 @@ const (
 func main() {
 	// Parse command-line flags
 	var (
-		transportMode   = flag.String("transport", getEnvOrDefault("MCP_TRANSPORT", "stdio"), "Transport mode: stdio or http")
-		httpHost       = flag.String("host", getEnvOrDefault("MCP_HTTP_HOST", "0.0.0.0"), "HTTP server host (http mode only)")
-		httpPort       = flag.String("port", getEnvOrDefault("MCP_HTTP_PORT", "8080"), "HTTP server port (http mode only)")
-		skipValidation = flag.Bool("skip-validation", false, "Skip API key validation (for testing only)")
+		transportMode = flag.String("transport", getEnvOrDefault("MCP_TRANSPORT", "stdio"), "Transport mode: stdio or http")
+		httpHost      = flag.String("host", getEnvOrDefault("MCP_HTTP_HOST", "0.0.0.0"), "HTTP server host (http mode only)")
+		httpPort      = flag.String("port", getEnvOrDefault("MCP_HTTP_PORT", "8080"), "HTTP server port (http mode only)")
 	)
 	flag.Parse()
 
-	// Get API key from environment
-	apiKey := os.Getenv("ZEROPS_API_KEY")
-	if apiKey == "" && !*skipValidation {
-		log.Fatal("ZEROPS_API_KEY environment variable is required")
-	}
+	// Initialize shared tool registry first
+	handlers.RegisterShared()
 
-	// Create Zerops SDK client (can be nil if skip-validation is used)
-	var client *sdk.Handler
-	if apiKey != "" {
-		client = createZeropsClient(apiKey)
-	} else if *skipValidation {
-		log.Println("WARNING: Running without ZEROPS_API_KEY - API calls will fail")
-		// Create a dummy client for testing
-		client = nil
-	}
-
-	// Create and configure MCP server with workflow instructions
+	// Create MCP server
 	server := mcp.NewServer(
 		&mcp.Implementation{
 			Name:    serverName,
@@ -62,9 +48,26 @@ func main() {
 		},
 	)
 
-	// Register all handlers
-	if err := handlers.Register(server, client); err != nil {
-		log.Fatalf("Failed to register handlers: %v", err)
+	// Handle transport-specific setup
+	var client *sdk.Handler
+	if *transportMode == "stdio" {
+		// Stdio mode: API key from environment
+		apiKey := os.Getenv("ZEROPS_API_KEY")
+		if apiKey == "" {
+			log.Fatal("ZEROPS_API_KEY environment variable is required for stdio mode")
+		}
+		client = createZeropsClient(apiKey)
+
+		// Register tools with MCP server for stdio
+		if err := handlers.RegisterForMCP(server, client); err != nil {
+			log.Fatalf("Failed to register handlers: %v", err)
+		}
+	} else if *transportMode == "http" {
+		// HTTP mode: API key will come from client requests
+		log.Println("HTTP mode: API keys will be provided by clients via Authorization header")
+		// No need to register with MCP server - HTTP will use shared registry directly
+	} else {
+		log.Fatalf("Invalid transport mode: %s (must be 'stdio' or 'http')", *transportMode)
 	}
 
 	// Create context for graceful shutdown
@@ -86,14 +89,12 @@ func main() {
 		startStdioServer(ctx, server)
 	case "http":
 		startHTTPServer(ctx, server, *httpHost, *httpPort)
-	default:
-		log.Fatalf("Invalid transport mode: %s (must be 'stdio' or 'http')", *transportMode)
 	}
 }
 
 func startStdioServer(ctx context.Context, server *mcp.Server) {
 	fmt.Fprintf(os.Stderr, "Starting %s v%s in stdio mode...\n", serverName, serverVersion)
-	
+
 	stdioTransport := mcp.NewStdioTransport()
 	if err := server.Run(ctx, stdioTransport); err != nil {
 		if err != context.Canceled {
@@ -105,14 +106,15 @@ func startStdioServer(ctx context.Context, server *mcp.Server) {
 func startHTTPServer(ctx context.Context, server *mcp.Server, host, port string) {
 	fmt.Fprintf(os.Stderr, "Starting %s v%s in HTTP mode on %s:%s...\n", serverName, serverVersion, host, port)
 	fmt.Fprintf(os.Stderr, "Authentication: Bearer token with ZEROPS_API_KEY\n")
-	
+
 	config := transport.HTTPServerConfig{
-		Host:      host,
-		Port:      port,
-		Server:    server,
+		Host:   host,
+		Port:   port,
+		Server: server,
 	}
 
-	if err := transport.StartHTTPServer(ctx, config); err != nil {
+	// Use the shared handler for HTTP
+	if err := transport.StartHTTPServerShared(ctx, config); err != nil {
 		if err != http.ErrServerClosed && err != context.Canceled {
 			log.Fatalf("HTTP server error: %v", err)
 		}
@@ -130,9 +132,9 @@ func createZeropsClient(apiKey string) *sdk.Handler {
 	config := sdkBase.Config{
 		Endpoint: apiEndpoint,
 	}
-	
+
 	baseSDK := sdk.New(config, http.DefaultClient)
 	authorizedSDK := sdk.AuthorizeSdk(baseSDK, apiKey)
-	
+
 	return &authorizedSDK
 }

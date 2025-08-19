@@ -1,6 +1,6 @@
 # Zerops MCP Server
 
-A Model Context Protocol (MCP) server implementation that enables AI assistants to interact with the Zerops platform. This server provides tools for managing projects, services, and deployments through a standardized protocol.
+A Model Context Protocol (MCP) server implementation that enables AI assistants to interact with the Zerops platform. This server provides tools for managing projects, services, and deployments through a standardized protocol with support for both local (stdio) and remote (HTTP) transport modes.
 
 ## What is MCP?
 
@@ -8,26 +8,27 @@ The Model Context Protocol is an open standard that enables seamless integration
 
 ## Features
 
+- **Dual Transport Support**: Both stdio (local) and HTTP (remote) modes
+- **Shared Tool Logic**: DRY architecture with unified tool implementations
 - **Project Management**: Create, list, search, and delete Zerops projects
-- **Service Operations**: Manage services including creation, deletion, and configuration
-- **Deployment Tools**: Deploy applications using integrated zcli functionality
+- **Service Operations**: Manage services including creation, deletion, start/stop, and subdomain configuration
+- **Deployment Tools**: Deploy applications using integrated zcli functionality (stdio) or instructions (HTTP)
 - **Knowledge Base Access**: Query 159+ deployment recipes and configurations
 - **Multi-organization Support**: Work across different Zerops organizations
+- **Per-Request Authentication**: HTTP mode supports stateless authentication with client-provided API keys
 - **Built-in Instructions**: Provides workflow guidance to connected AI clients
 
 ## Installation
 
-### Quick Install
+### Pre-built Binaries
 
-#### macOS/Linux
-```bash
-curl -sSL https://raw.githubusercontent.com/krls2020/zerops-mcp-go-sdk/main/install.sh | sh
-```
+Download the latest release from [GitHub Releases](https://github.com/krls2020/zerops-mcp-go-sdk/releases):
 
-#### Windows
-```powershell
-irm https://raw.githubusercontent.com/krls2020/zerops-mcp-go-sdk/main/install.ps1 | iex
-```
+- **Windows**: `zerops-mcp-win-x64.exe`
+- **Linux AMD64**: `zerops-mcp-linux-amd64`
+- **Linux 386**: `zerops-mcp-linux-i386`
+- **macOS Intel**: `zerops-mcp-darwin-amd64`
+- **macOS Apple Silicon**: `zerops-mcp-darwin-arm64`
 
 ### Build from Source
 
@@ -41,33 +42,39 @@ cd zerops-mcp-go-sdk
 make clean && make all  # Build for all platforms
 ```
 
-### Pre-built Binaries
+Or build for specific platform:
+```bash
+go build -o zerops-mcp cmd/mcp-server/main.go
+```
 
-The latest release includes pre-built binaries for:
-- **Windows AMD64**: `zerops-mcp-win-x64.exe`
-- **Linux AMD64**: `zerops-mcp-linux-amd64`
-- **Linux i386**: `zerops-mcp-linux-i386`
-- **macOS Intel**: `zerops-mcp-darwin-amd64`
-- **macOS ARM64**: `zerops-mcp-darwin-arm64`
+### Quick Install Script
 
-Download from [Releases](https://github.com/krls2020/zerops-mcp-go-sdk/releases)
+#### macOS/Linux
+```bash
+curl -sSL https://raw.githubusercontent.com/krls2020/zerops-mcp-go-sdk/main/install.sh | sh
+```
+
+#### Windows
+```powershell
+irm https://raw.githubusercontent.com/krls2020/zerops-mcp-go-sdk/main/install.ps1 | iex
+```
 
 ## Transport Modes
 
-The Zerops MCP server supports two transport modes:
+The Zerops MCP server supports two transport modes with shared tool logic:
 
 ### 1. Stdio Mode (Default)
-Traditional stdio-based communication for local installations with Claude Desktop and other MCP clients.
+Traditional stdio-based communication for local installations with Claude Desktop and other MCP clients. Requires ZEROPS_API_KEY environment variable at startup.
 
-### 2. HTTP Mode (NEW)
-Streamable HTTP transport with SSE (Server-Sent Events) for cloud deployments and remote access.
+### 2. HTTP Mode
+Stateless HTTP transport for cloud deployments and remote access. Each client provides their own API key via Authorization header.
 
 ## Configuration
 
 ### Prerequisites
 
 - Zerops API key from [Dashboard](https://app.zerops.io/settings/token-management)
-- zcli for deployment operations (for stdio mode)
+- zcli for deployment operations (stdio mode only)
 
 ### Stdio Mode Setup (Claude Desktop)
 
@@ -108,16 +115,15 @@ Alternatively, manually edit your Claude Desktop config file:
 
 ### HTTP Mode Setup
 
-The HTTP mode allows the server to be deployed as a web service and accessed remotely.
+The HTTP mode allows the server to be deployed as a web service and accessed remotely. Unlike stdio mode, HTTP mode is **stateless** - each client provides their own API key.
 
 #### Starting the Server
 
 ```bash
-# Using command-line flags
-ZEROPS_API_KEY="your-api-key" ./zerops-mcp -transport http -host 0.0.0.0 -port 8080
+# Start HTTP server - clients MUST provide API key via Authorization header
+./zerops-mcp --transport http --host 0.0.0.0 --port 8080
 
 # Using environment variables
-export ZEROPS_API_KEY="your-api-key"
 export MCP_TRANSPORT="http"
 export MCP_HTTP_HOST="0.0.0.0"
 export MCP_HTTP_PORT="8080"
@@ -128,27 +134,34 @@ export MCP_HTTP_PORT="8080"
 
 | Option | Flag | Environment Variable | Default | Description |
 |--------|------|---------------------|---------|-------------|
-| Transport Mode | `-transport` | `MCP_TRANSPORT` | `stdio` | Transport protocol (`stdio` or `http`) |
-| HTTP Host | `-host` | `MCP_HTTP_HOST` | `0.0.0.0` | HTTP server bind address |
-| HTTP Port | `-port` | `MCP_HTTP_PORT` | `8080` | HTTP server port |
+| Transport Mode | `--transport` | `MCP_TRANSPORT` | `stdio` | Transport protocol (`stdio` or `http`) |
+| HTTP Host | `--host` | `MCP_HTTP_HOST` | `0.0.0.0` | HTTP server bind address |
+| HTTP Port | `--port` | `MCP_HTTP_PORT` | `8080` | HTTP server port |
 
 #### Authentication
 
-HTTP mode uses Bearer token authentication with your ZEROPS_API_KEY:
+HTTP mode uses **per-request authentication**. Each client MUST provide their own Zerops API key via Bearer token:
 
 ```bash
 Authorization: Bearer your-zerops-api-key
 ```
 
+The server creates a new Zerops SDK client for each request using the provided API key.
+
+**Important**: 
+- ✅ **Production**: The server always enforces authentication via Bearer token
+- ⚠️ **Security**: Clients MUST provide their API key via Authorization header
+
 #### Endpoints
 
-- `POST /mcp` - Main MCP endpoint for JSON-RPC requests
+- `POST /` - Main MCP endpoint for JSON-RPC requests
 - `GET /health` - Health check endpoint (no auth required)
 
 #### Claude Desktop Configuration for HTTP Mode
 
 ```bash
-claude mcp add --transport http zerops https://your-server.com/mcp \
+# Configure Claude to use HTTP transport
+claude mcp add --transport http zerops https://your-server.com/ \
   --header "Authorization: Bearer your-zerops-api-key"
 ```
 
@@ -159,7 +172,7 @@ Or manually in config:
   "mcpServers": {
     "zerops-http": {
       "transport": "http",
-      "url": "https://your-server.com/mcp",
+      "url": "https://your-server.com/",
       "headers": {
         "Authorization": "Bearer your-zerops-api-key"
       }
@@ -168,104 +181,124 @@ Or manually in config:
 }
 ```
 
-#### Example Deployment on Zerops
+#### Example Cloud Deployment
 
-The server can be deployed on Zerops platform itself:
+For production deployment on Zerops platform:
 
 ```bash
-# Deploy to https://mcp-16cb-8080.prg1.zerops.app/
-ZEROPS_API_KEY="your-api-key" MCP_TRANSPORT="http" MCP_HTTP_PORT="8080" ./zerops-mcp
+# Production deployment (requires authentication)
+./zerops-mcp --transport http --host 0.0.0.0 --port 8080
+
+# Example endpoint: https://mcp-16cb-8080.prg1.zerops.app/
+# Note: Clients must provide Bearer token with ZEROPS_API_KEY
 ```
 
 #### Testing HTTP Mode
 
 ```bash
 # Health check
-curl https://your-server.com/health
+curl https://mcp-16cb-8080.prg1.zerops.app/health
 
-# MCP request with authentication
-curl -X POST https://your-server.com/mcp \
+# List available tools
+curl -X POST https://mcp-16cb-8080.prg1.zerops.app/ \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer your-zerops-api-key" \
-  -H "Accept: application/json, text/event-stream" \
-  -d '{"jsonrpc":"2.0","method":"initialize","params":{},"id":1}'
+  -d '{"jsonrpc":"2.0","method":"tools/list","id":1}'
+
+# Call a tool
+curl -X POST https://mcp-16cb-8080.prg1.zerops.app/ \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer your-zerops-api-key" \
+  -d '{
+    "jsonrpc":"2.0",
+    "method":"tools/call",
+    "params": {
+      "name": "project_list",
+      "arguments": {}
+    },
+    "id":2
+  }'
 ```
 
 ## Architecture
 
-### Project Structure
+### Shared Tool Registry (DRY Design)
+
+The server uses a **shared tool registry** that ensures both stdio and HTTP transports use the same tool implementations:
 
 ```
-zerops-mcp-go-sdk/
-├── cmd/mcp-server/         # Main entry point
-│   └── main.go            # Server initialization (stdio/HTTP)
-├── internal/
-│   ├── handlers/          # MCP protocol handlers
-│   │   ├── register.go    # Tool registration
-│   │   └── tools/         # Tool implementations
-│   │       ├── auth.go        # Authentication tools
-│   │       ├── projects.go    # Project management
-│   │       ├── services.go    # Service operations
-│   │       ├── deploy.go      # Deployment tools
-│   │       └── knowledge.go   # Knowledge base client
-│   ├── instructions/      # Workflow instructions
-│   │   └── workflow.go    # Built-in guidance
-│   └── transport/         # Transport implementations
-│       └── http.go        # HTTP/SSE transport
-├── tools/                 # Build scripts
-│   └── build.sh          # Cross-platform builds
-├── install.sh            # Unix installation
-├── install.ps1           # Windows installation
-└── Makefile              # Build automation
+internal/
+├── handlers/
+│   ├── shared/
+│   │   └── registry.go         # Central tool registry
+│   ├── tools/
+│   │   ├── *_shared.go         # Shared tool implementations
+│   │   └── *.go                # MCP wrapper for stdio
+│   └── register_shared.go      # Registration logic
+└── transport/
+    ├── http_shared.go           # HTTP handler using registry
+    └── http.go                  # HTTP server setup
 ```
 
-### Core Components
+### Key Components
 
-**MCP Server Implementation**
-- Uses the `github.com/modelcontextprotocol/go-sdk` library
-- Implements JSON-RPC 2.0 protocol over stdio and HTTP/SSE
-- Provides tool discovery and execution
-- Supports both local (stdio) and remote (HTTP) transport modes
+**Shared Tool Registry** (`internal/handlers/shared/registry.go`)
+- Central registry for all tool definitions
+- Single source of truth for tool logic
+- Used by both stdio and HTTP transports
 
-**Tool Categories**
-- **Authentication**: API key validation
-- **Projects**: CRUD operations for Zerops projects
-- **Services**: Service lifecycle management
-- **Deployment**: Application deployment via zcli
-- **Knowledge**: Recipe and configuration queries
+**Tool Implementations** (`internal/handlers/tools/*_shared.go`)
+- `auth_shared.go` - Authentication tools
+- `projects_shared.go` - Project management
+- `services_shared.go` - Service operations
+- `deploy_shared.go` - Deployment tools
+- `knowledge_shared.go` - Knowledge base access
 
-## Available Tools
+**Transport Handlers**
+- **Stdio**: Uses MCP SDK directly with registered tools
+- **HTTP**: Uses shared registry for stateless operation
 
-### Project Tools
-- `project_list` - List all projects
+### Transport-Specific Behavior
+
+Only deployment tools behave differently between transports:
+- **Stdio mode**: Executes `zcli` commands locally
+- **HTTP mode**: Returns instructions for manual execution
+
+All other tools use identical logic regardless of transport.
+
+## Available Tools (18 Total)
+
+### Authentication Tools (2)
+- `auth_validate` - Validate API credentials and show account info
+- `auth_show` - Show authentication status and available regions
+
+### Project Tools (5)
+- `project_list` - List all projects across organizations
 - `project_create` - Create new project
-- `project_delete` - Delete project
+- `project_delete` - Delete project (requires confirmation)
 - `project_search` - Search projects by name
-- `project_import` - Import services from YAML
+- `project_import` - Import services from YAML configuration
 
-### Service Tools
-- `service_list` - List project services
-- `service_info` - Get service details
-- `service_delete` - Delete service
-- `service_enable_subdomain` - Enable public access
+### Service Tools (7)
+- `service_list` - List services in a project
+- `service_info` - Get detailed service information
+- `service_delete` - Delete service (requires confirmation)
+- `service_enable_subdomain` - Enable public subdomain access
+- `service_disable_subdomain` - Disable public subdomain access
+- `service_start` - Start a stopped service
+- `service_stop` - Stop a running service
 
-### Deployment Tools
+### Deployment Tools (2)
 - `deploy_validate` - Validate deployment configuration
 - `deploy_push` - Deploy application code
 
-### Knowledge Tools
-- `knowledge_search` - Search deployment recipes
-- `knowledge_get` - Retrieve specific recipe
-
-### System Tools
-- `auth_validate` - Validate API credentials
-- `region_list` - List available regions
+### Knowledge Tools (2)
+- `knowledge_search` - Search deployment recipes and patterns
+- `knowledge_get` - Retrieve specific recipe by ID
 
 ## Development
 
 ### Building
-
-The project uses a Makefile with the following targets:
 
 ```bash
 make help        # Show available targets
@@ -284,54 +317,77 @@ make darwin-amd   # macOS Intel
 make darwin-arm   # macOS Apple Silicon
 ```
 
-#### Build output:
-All binaries are generated in the `bin/` directory with debug symbols included. The build script embeds version information including git branch, tags, and author details.
-
-Example build sizes:
-- Windows/Linux AMD64: ~12MB
-- macOS Intel: ~12MB
-- Linux i386/macOS ARM64: ~11MB
-
 ### Testing
 
-The server can be tested directly via stdio:
-
+#### Stdio Mode Testing
 ```bash
 export ZEROPS_API_KEY="your-key"
 ./zerops-mcp
+# Send JSON-RPC to stdin
 ```
 
-Send JSON-RPC requests to stdin and receive responses on stdout.
+#### HTTP Mode Testing
+```bash
+# Start server
+./zerops-mcp --transport http --port 8080
+
+# Test with curl
+curl -X POST http://localhost:8080/ \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer your-api-key" \
+  -d '{"jsonrpc":"2.0","method":"tools/list","id":1}'
+```
 
 ## Technical Details
 
-### MCP Protocol
+### MCP Protocol Implementation
 
 The server implements the Model Context Protocol specification:
 - Tool discovery via `tools/list`
 - Tool execution via `tools/call`
-- Resource management
-- Progress notifications
-- Error handling
+- Shared tool registry for consistent behavior
+- Error handling with structured responses
 
 ### API Integration
 
-- Direct integration with Zerops API
-- External knowledge base API for recipes
-- zcli wrapper for deployments
+- **Zerops SDK**: Direct integration with Zerops API
+- **Knowledge Base**: External API for deployment recipes
+- **zcli Wrapper**: Local command execution (stdio mode only)
+- **Per-Request Clients**: Stateless operation in HTTP mode
 
-### Error Handling
+### Security
 
-- Structured error responses
-- Validation for all inputs
-- Graceful fallbacks
+- **Stdio Mode**: API key stored in environment variable
+- **HTTP Mode**: Per-request authentication with Bearer tokens
+- **No Shared State**: Each HTTP request is independent
+- **Always Validated**: Authentication is always enforced in production
+
+## Publishing Checklist
+
+### Before Release
+- [x] Remove all debug/test code
+- [x] Remove `--skip-validation` flag
+- [x] Clean up demo configurations
+- [x] Format all Go code
+- [x] Update dependencies
+- [x] Test both transport modes
+- [x] Update documentation
+- [x] Create CHANGELOG.md
+
+### Release Process
+1. Tag the release: `git tag v1.0.0`
+2. Run release script: `./release.sh 1.0.0`
+3. Upload binaries to GitHub Releases
+4. Update installation scripts
+5. Publish to MCP registry
 
 ## Contributing
 
 1. Fork the repository
 2. Create a feature branch
 3. Implement changes with tests
-4. Submit a pull request
+4. Ensure both transports work correctly
+5. Submit a pull request
 
 ## License
 

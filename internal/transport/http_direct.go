@@ -69,7 +69,7 @@ func DirectHTTPHandler(server *mcp.Server) http.HandlerFunc {
 			// Process the request and send response as SSE
 			response := processRequest(server, request)
 			responseJSON, _ := json.Marshal(response)
-			
+
 			// Send as SSE event
 			fmt.Fprintf(w, "data: %s\n\n", responseJSON)
 			flusher.Flush()
@@ -106,7 +106,7 @@ func processRequest(server *mcp.Server, request map[string]interface{}) map[stri
 				"capabilities": map[string]interface{}{
 					"tools": map[string]interface{}{},
 					"resources": map[string]interface{}{
-						"subscribe": false,
+						"subscribe":   false,
 						"listChanged": false,
 					},
 				},
@@ -129,7 +129,7 @@ func processRequest(server *mcp.Server, request map[string]interface{}) map[stri
 						"name":        "project_list",
 						"description": "List all projects",
 						"inputSchema": map[string]interface{}{
-							"type": "object",
+							"type":       "object",
 							"properties": map[string]interface{}{},
 						},
 					},
