@@ -1,6 +1,9 @@
 name: release
 
 on:
+  push:
+    tags:
+      - 'v*'
   release:
     types:
       - published
@@ -9,9 +12,50 @@ permissions:
   contents: write
 
 jobs:
+  create-release:
+    name: Create Release
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')
+    outputs:
+      upload_url: ${{ steps.create_release.outputs.upload_url }}
+    steps:
+      - name: Create Release
+        id: create_release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ github.ref_name }}
+          release_name: ${{ github.ref_name }} - Production Ready Release
+          body: |
+            ## 🚀 Zerops MCP Server ${{ github.ref_name }}
+            
+            ### Major Features
+            - **Dual Transport Support**: Both stdio (local) and HTTP (remote) modes
+            - **18 Tools**: Complete coverage across authentication, projects, services, deployment, and knowledge base
+            - **Shared Tool Registry**: DRY architecture with unified tool implementations
+            - **Stateless HTTP Mode**: Per-request authentication with Bearer tokens
+            - **Cross-Platform**: Pre-built binaries for Windows, Linux, and macOS
+            
+            ### 🔒 Security
+            - **Mandatory Authentication**: No skip-validation option
+            - **Per-Request Auth**: Each HTTP request requires its own API key
+            - **No Shared State**: Complete isolation between requests
+            
+            ### 📦 Installation
+            Download the appropriate binary for your platform from the assets below.
+            
+            ### 📚 Documentation
+            - [Full Documentation](https://github.com/krls2020/zerops-mcp-go-sdk#readme)
+            - [Environment Setup](https://github.com/krls2020/zerops-mcp-go-sdk/blob/main/docs/ENVIRONMENT_SETUP.md)
+          draft: false
+          prerelease: false
+
   build:
     name: build & upload ${{ matrix.name }}
     runs-on: ubuntu-22.04
+    needs: [create-release]
+    if: always() && (github.event_name == 'release' || needs.create-release.result == 'success' || needs.create-release.result == 'skipped')
     env:
       CGO_ENABLED: '0'
     strategy:
@@ -71,9 +115,13 @@ jobs:
         env: ${{ matrix.env }}
         run: |
           mkdir -p builds
+          VERSION="${GITHUB_REF#refs/tags/}"
+          if [ "${{ github.event_name }}" = "release" ]; then
+            VERSION="${{ github.event.release.tag_name }}"
+          fi
           go build \
             -o builds/${{ matrix.file }} \
-            -ldflags "-s -w -X main.version=${{ github.event.release.tag_name }}" \
+            -ldflags "-s -w -X main.version=$VERSION" \
             ./cmd/mcp-server/main.go
 
       - name: compress binary
@@ -83,12 +131,24 @@ jobs:
           file: ./builds/${{ matrix.file }}
           strip: ${{ matrix.strip }}
 
-      - name: upload asset
+      - name: upload asset to release
+        if: github.event_name == 'release'
         uses: actions/upload-release-asset@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ github.event.release.upload_url }}
+          asset_path: ./builds/${{ matrix.file }}
+          asset_name: ${{ matrix.file }}
+          asset_content_type: application/octet-stream
+
+      - name: upload artifact to created release
+        if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ needs.create-release.outputs.upload_url }}
           asset_path: ./builds/${{ matrix.file }}
           asset_name: ${{ matrix.file }}
           asset_content_type: application/octet-stream
