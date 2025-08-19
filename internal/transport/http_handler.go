@@ -208,13 +208,11 @@ Before creating services, ALWAYS search the knowledge base:
 5. For utility services (Adminer, Mailpit, S3Browser), KEEP buildFromGit field!
 
 ## Recipe with Custom Hostname
-Use 'extends' to alias recipes:
+Simply change the hostname while keeping buildFromGit:
 services:
-  - hostname: adminer         # Base recipe
+  - hostname: mycustomname    # Your custom hostname
     type: php@8.3
     buildFromGit: https://github.com/zeropsio/recipe-adminer
-  - hostname: mycustomname    # Your alias
-    extends: adminer
 
 ## Common Service Types (always verify with KB first)
 - postgresql@16, mariadb@11, mongodb@7
