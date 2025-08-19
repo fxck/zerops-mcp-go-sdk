@@ -14,20 +14,27 @@ import (
 	"github.com/zeropsio/zerops-go/sdkBase"
 )
 
-// HTTPSharedHandler handles HTTP requests using the shared tool registry
-type HTTPSharedHandler struct {
+// HTTPServerConfig contains configuration for the HTTP server
+type HTTPServerConfig struct {
+	Host   string
+	Port   string
+	Server *mcp.Server
+}
+
+// HTTPHandler handles HTTP requests using the global tool registry
+type HTTPHandler struct {
 	mcpServer *mcp.Server
 }
 
-// NewHTTPSharedHandler creates a new shared handler
-func NewHTTPSharedHandler(mcpServer *mcp.Server) *HTTPSharedHandler {
-	return &HTTPSharedHandler{
+// NewHTTPHandler creates a new HTTP handler
+func NewHTTPHandler(mcpServer *mcp.Server) *HTTPHandler {
+	return &HTTPHandler{
 		mcpServer: mcpServer,
 	}
 }
 
 // ServeHTTP handles incoming HTTP requests using shared registry
-func (h *HTTPSharedHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+func (h *HTTPHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// Handle CORS
 	w.Header().Set("Access-Control-Allow-Origin", "*")
 	w.Header().Set("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
@@ -96,7 +103,7 @@ func (h *HTTPSharedHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 }
 
 // processRequest handles JSON-RPC requests using shared registry
-func (h *HTTPSharedHandler) processRequest(ctx context.Context, request map[string]interface{}) map[string]interface{} {
+func (h *HTTPHandler) processRequest(ctx context.Context, request map[string]interface{}) map[string]interface{} {
 	method, _ := request["method"].(string)
 	id := request["id"]
 	params, _ := request["params"].(map[string]interface{})
@@ -166,7 +173,7 @@ func (h *HTTPSharedHandler) processRequest(ctx context.Context, request map[stri
 }
 
 // getRegisteredTools returns all tools from shared registry
-func (h *HTTPSharedHandler) getRegisteredTools() []map[string]interface{} {
+func (h *HTTPHandler) getRegisteredTools() []map[string]interface{} {
 	tools := shared.GlobalRegistry.List()
 	result := make([]map[string]interface{}, 0, len(tools))
 
@@ -203,9 +210,9 @@ func createZeropsClient(apiKey string) *sdk.Handler {
 	return &authorizedSDK
 }
 
-// StartHTTPServerShared starts HTTP server with shared registry
-func StartHTTPServerShared(ctx context.Context, config HTTPServerConfig) error {
-	handler := NewHTTPSharedHandler(config.Server)
+// StartHTTPServer starts the HTTP server using the global registry
+func StartHTTPServer(ctx context.Context, config HTTPServerConfig) error {
+	handler := NewHTTPHandler(config.Server)
 
 	server := &http.Server{
 		Addr:    fmt.Sprintf("%s:%s", config.Host, config.Port),

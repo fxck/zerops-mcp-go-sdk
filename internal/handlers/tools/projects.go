@@ -15,8 +15,8 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-// RegisterProjectsShared registers project tools in the shared registry
-func RegisterProjectsShared() {
+// RegisterProjects registers project tools in the global registry
+func RegisterProjects() {
 	shared.GlobalRegistry.Register(&shared.ToolDefinition{
 		Name:        "project_list",
 		Description: "List all projects across all your organizations",
@@ -24,7 +24,7 @@ func RegisterProjectsShared() {
 			"type":       "object",
 			"properties": map[string]interface{}{},
 		},
-		Handler: handleProjectListShared,
+		Handler: handleProjectList,
 	})
 
 	shared.GlobalRegistry.Register(&shared.ToolDefinition{
@@ -40,7 +40,7 @@ func RegisterProjectsShared() {
 			},
 			"required": []string{"name"},
 		},
-		Handler: handleProjectSearchShared,
+		Handler: handleProjectSearch,
 	})
 
 	shared.GlobalRegistry.Register(&shared.ToolDefinition{
@@ -64,7 +64,7 @@ func RegisterProjectsShared() {
 			},
 			"required": []string{"name"},
 		},
-		Handler: handleProjectCreateShared,
+		Handler: handleProjectCreate,
 	})
 
 	shared.GlobalRegistry.Register(&shared.ToolDefinition{
@@ -84,7 +84,7 @@ func RegisterProjectsShared() {
 			},
 			"required": []string{"project_id", "confirm"},
 		},
-		Handler: handleProjectDeleteShared,
+		Handler: handleProjectDelete,
 	})
 
 	shared.GlobalRegistry.Register(&shared.ToolDefinition{
@@ -104,11 +104,11 @@ func RegisterProjectsShared() {
 			},
 			"required": []string{"project_id", "yaml"},
 		},
-		Handler: handleProjectImportShared,
+		Handler: handleProjectImport,
 	})
 }
 
-func handleProjectListShared(ctx context.Context, client *sdk.Handler, args map[string]interface{}) (interface{}, error) {
+func handleProjectList(ctx context.Context, client *sdk.Handler, args map[string]interface{}) (interface{}, error) {
 	if client == nil {
 		return shared.ErrorResponse("No API key provided"), nil
 	}
@@ -127,7 +127,7 @@ func handleProjectListShared(ctx context.Context, client *sdk.Handler, args map[
 	// Collect all projects from all organizations
 	var projects []projectInfo
 	for _, clientUser := range userOutput.ClientUserList {
-		clientProjects := getProjectsForClientShared(ctx, client, clientUser)
+		clientProjects := getProjectsForClient(ctx, client, clientUser)
 		projects = append(projects, clientProjects...)
 	}
 
@@ -139,13 +139,13 @@ func handleProjectListShared(ctx context.Context, client *sdk.Handler, args map[
 	var message strings.Builder
 	message.WriteString(fmt.Sprintf("Found %d project(s):\n\n", len(projects)))
 	for i, p := range projects {
-		message.WriteString(formatProjectShared(i+1, p))
+		message.WriteString(formatProject(i+1, p))
 	}
 
 	return shared.TextResponse(message.String()), nil
 }
 
-func handleProjectSearchShared(ctx context.Context, client *sdk.Handler, args map[string]interface{}) (interface{}, error) {
+func handleProjectSearch(ctx context.Context, client *sdk.Handler, args map[string]interface{}) (interface{}, error) {
 	if client == nil {
 		return shared.ErrorResponse("No API key provided"), nil
 	}
@@ -182,7 +182,7 @@ func handleProjectSearchShared(ctx context.Context, client *sdk.Handler, args ma
 	return shared.TextResponse(message.String()), nil
 }
 
-func handleProjectCreateShared(ctx context.Context, client *sdk.Handler, args map[string]interface{}) (interface{}, error) {
+func handleProjectCreate(ctx context.Context, client *sdk.Handler, args map[string]interface{}) (interface{}, error) {
 	if client == nil {
 		return shared.ErrorResponse("No API key provided"), nil
 	}
@@ -244,7 +244,7 @@ func handleProjectCreateShared(ctx context.Context, client *sdk.Handler, args ma
 	return shared.TextResponse(message), nil
 }
 
-func handleProjectDeleteShared(ctx context.Context, client *sdk.Handler, args map[string]interface{}) (interface{}, error) {
+func handleProjectDelete(ctx context.Context, client *sdk.Handler, args map[string]interface{}) (interface{}, error) {
 	if client == nil {
 		return shared.ErrorResponse("No API key provided"), nil
 	}
@@ -276,7 +276,7 @@ func handleProjectDeleteShared(ctx context.Context, client *sdk.Handler, args ma
 	return shared.TextResponse(fmt.Sprintf("Project deletion initiated\nProcess ID: %s", string(output.Id))), nil
 }
 
-func handleProjectImportShared(ctx context.Context, client *sdk.Handler, args map[string]interface{}) (interface{}, error) {
+func handleProjectImport(ctx context.Context, client *sdk.Handler, args map[string]interface{}) (interface{}, error) {
 	if client == nil {
 		return shared.ErrorResponse("No API key provided"), nil
 	}
@@ -318,7 +318,7 @@ func handleProjectImportShared(ctx context.Context, client *sdk.Handler, args ma
 }
 
 // Helper functions
-func getProjectsForClientShared(ctx context.Context, client *sdk.Handler, clientUser output.ClientUserExtra) []projectInfo {
+func getProjectsForClient(ctx context.Context, client *sdk.Handler, clientUser output.ClientUserExtra) []projectInfo {
 	filter := body.EsFilter{
 		Search: []body.EsSearchItem{{
 			Name:     "clientId",
@@ -349,7 +349,7 @@ func getProjectsForClientShared(ctx context.Context, client *sdk.Handler, client
 	return projects
 }
 
-func formatProjectShared(index int, p projectInfo) string {
+func formatProject(index int, p projectInfo) string {
 	result := fmt.Sprintf("%d. %s\n", index, p.Project.Name.Native())
 	result += fmt.Sprintf("   ID: %s\n", string(p.Project.Id))
 	result += fmt.Sprintf("   Organization: %s\n", p.OrgName)

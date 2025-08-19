@@ -12,8 +12,8 @@ import (
 	"github.com/zeropsio/zerops-go/sdk"
 )
 
-// RegisterDeployShared registers deployment tools in the shared registry
-func RegisterDeployShared() {
+// RegisterDeploy registers deployment tools in the global registry
+func RegisterDeploy() {
 	shared.GlobalRegistry.Register(&shared.ToolDefinition{
 		Name:        "deploy_validate",
 		Description: "Validate deployment configuration (zerops.yml)",
@@ -34,7 +34,7 @@ func RegisterDeployShared() {
 				},
 			},
 		},
-		Handler: handleDeployValidateShared,
+		Handler: handleDeployValidate,
 	})
 
 	shared.GlobalRegistry.Register(&shared.ToolDefinition{
@@ -58,11 +58,11 @@ func RegisterDeployShared() {
 			},
 			"required": []string{"project_id", "service_id"},
 		},
-		Handler: handleDeployPushShared,
+		Handler: handleDeployPush,
 	})
 }
 
-func handleDeployValidateShared(ctx context.Context, client *sdk.Handler, args map[string]interface{}) (interface{}, error) {
+func handleDeployValidate(ctx context.Context, client *sdk.Handler, args map[string]interface{}) (interface{}, error) {
 	// Check if we're in HTTP mode by looking for the transport context
 	isHTTPMode := ctx.Value("httpMode") != nil
 
@@ -91,7 +91,7 @@ func handleDeployValidateShared(ctx context.Context, client *sdk.Handler, args m
 	return executeZcliValidate(yamlPath, projectID, serviceID)
 }
 
-func handleDeployPushShared(ctx context.Context, client *sdk.Handler, args map[string]interface{}) (interface{}, error) {
+func handleDeployPush(ctx context.Context, client *sdk.Handler, args map[string]interface{}) (interface{}, error) {
 	// Check if we're in HTTP mode
 	isHTTPMode := ctx.Value("httpMode") != nil
 

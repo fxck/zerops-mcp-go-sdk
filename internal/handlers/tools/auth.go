@@ -9,8 +9,8 @@ import (
 	"github.com/zeropsio/zerops-go/sdk"
 )
 
-// RegisterAuthShared registers auth tools in the shared registry
-func RegisterAuthShared() {
+// RegisterAuth registers authentication tools in the global registry
+func RegisterAuth() {
 	// Register auth_validate
 	shared.GlobalRegistry.Register(&shared.ToolDefinition{
 		Name:        "auth_validate",
@@ -19,7 +19,7 @@ func RegisterAuthShared() {
 			"type":       "object",
 			"properties": map[string]interface{}{},
 		},
-		Handler: handleAuthValidateShared,
+		Handler: handleAuthValidate,
 	})
 
 	// Register auth_show
@@ -30,11 +30,11 @@ func RegisterAuthShared() {
 			"type":       "object",
 			"properties": map[string]interface{}{},
 		},
-		Handler: handleAuthShowShared,
+		Handler: handleAuthShow,
 	})
 }
 
-func handleAuthValidateShared(ctx context.Context, client *sdk.Handler, args map[string]interface{}) (interface{}, error) {
+func handleAuthValidate(ctx context.Context, client *sdk.Handler, args map[string]interface{}) (interface{}, error) {
 	if client == nil {
 		return shared.ErrorResponse("No API key provided. Please set ZEROPS_API_KEY environment variable or provide it in the Authorization header."), nil
 	}
@@ -62,7 +62,7 @@ func handleAuthValidateShared(ctx context.Context, client *sdk.Handler, args map
 	return shared.TextResponse(message.String()), nil
 }
 
-func handleAuthShowShared(ctx context.Context, client *sdk.Handler, args map[string]interface{}) (interface{}, error) {
+func handleAuthShow(ctx context.Context, client *sdk.Handler, args map[string]interface{}) (interface{}, error) {
 	if client == nil {
 		return shared.TextResponse("Not authenticated\n\nSet ZEROPS_API_KEY environment variable or provide it in the Authorization header to authenticate."), nil
 	}

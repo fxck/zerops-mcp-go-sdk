@@ -14,8 +14,8 @@ import (
 	"github.com/zeropsio/zerops-go/types/uuid"
 )
 
-// RegisterServicesShared registers service tools in the shared registry
-func RegisterServicesShared() {
+// RegisterServices registers service tools in the global registry
+func RegisterServices() {
 	shared.GlobalRegistry.Register(&shared.ToolDefinition{
 		Name:        "service_list",
 		Description: "List all services in a project",
@@ -29,7 +29,7 @@ func RegisterServicesShared() {
 			},
 			"required": []string{"project_id"},
 		},
-		Handler: handleServiceListShared,
+		Handler: handleServiceList,
 	})
 
 	shared.GlobalRegistry.Register(&shared.ToolDefinition{
@@ -45,7 +45,7 @@ func RegisterServicesShared() {
 			},
 			"required": []string{"service_id"},
 		},
-		Handler: handleServiceInfoShared,
+		Handler: handleServiceInfo,
 	})
 
 	shared.GlobalRegistry.Register(&shared.ToolDefinition{
@@ -65,7 +65,7 @@ func RegisterServicesShared() {
 			},
 			"required": []string{"service_id", "confirm"},
 		},
-		Handler: handleServiceDeleteShared,
+		Handler: handleServiceDelete,
 	})
 
 	shared.GlobalRegistry.Register(&shared.ToolDefinition{
@@ -81,7 +81,7 @@ func RegisterServicesShared() {
 			},
 			"required": []string{"service_id"},
 		},
-		Handler: handleServiceEnableSubdomainShared,
+		Handler: handleServiceEnableSubdomain,
 	})
 
 	shared.GlobalRegistry.Register(&shared.ToolDefinition{
@@ -97,7 +97,7 @@ func RegisterServicesShared() {
 			},
 			"required": []string{"service_id"},
 		},
-		Handler: handleServiceDisableSubdomainShared,
+		Handler: handleServiceDisableSubdomain,
 	})
 
 	shared.GlobalRegistry.Register(&shared.ToolDefinition{
@@ -113,7 +113,7 @@ func RegisterServicesShared() {
 			},
 			"required": []string{"service_id"},
 		},
-		Handler: handleServiceStartShared,
+		Handler: handleServiceStart,
 	})
 
 	shared.GlobalRegistry.Register(&shared.ToolDefinition{
@@ -129,11 +129,11 @@ func RegisterServicesShared() {
 			},
 			"required": []string{"service_id"},
 		},
-		Handler: handleServiceStopShared,
+		Handler: handleServiceStop,
 	})
 }
 
-func handleServiceListShared(ctx context.Context, client *sdk.Handler, args map[string]interface{}) (interface{}, error) {
+func handleServiceList(ctx context.Context, client *sdk.Handler, args map[string]interface{}) (interface{}, error) {
 	if client == nil {
 		return shared.ErrorResponse("No API key provided"), nil
 	}
@@ -192,13 +192,13 @@ func handleServiceListShared(ctx context.Context, client *sdk.Handler, args map[
 		projectOutput.Name.Native(), len(searchOutput.Items)))
 
 	for i, service := range searchOutput.Items {
-		message.WriteString(formatServiceShared(i+1, service))
+		message.WriteString(formatService(i+1, service))
 	}
 
 	return shared.TextResponse(message.String()), nil
 }
 
-func handleServiceInfoShared(ctx context.Context, client *sdk.Handler, args map[string]interface{}) (interface{}, error) {
+func handleServiceInfo(ctx context.Context, client *sdk.Handler, args map[string]interface{}) (interface{}, error) {
 	if client == nil {
 		return shared.ErrorResponse("No API key provided"), nil
 	}
@@ -239,7 +239,7 @@ func handleServiceInfoShared(ctx context.Context, client *sdk.Handler, args map[
 	return shared.TextResponse(message.String()), nil
 }
 
-func handleServiceDeleteShared(ctx context.Context, client *sdk.Handler, args map[string]interface{}) (interface{}, error) {
+func handleServiceDelete(ctx context.Context, client *sdk.Handler, args map[string]interface{}) (interface{}, error) {
 	if client == nil {
 		return shared.ErrorResponse("No API key provided"), nil
 	}
@@ -268,7 +268,7 @@ func handleServiceDeleteShared(ctx context.Context, client *sdk.Handler, args ma
 	return shared.TextResponse(fmt.Sprintf("Service deletion initiated\nProcess ID: %s", string(output.Id))), nil
 }
 
-func handleServiceEnableSubdomainShared(ctx context.Context, client *sdk.Handler, args map[string]interface{}) (interface{}, error) {
+func handleServiceEnableSubdomain(ctx context.Context, client *sdk.Handler, args map[string]interface{}) (interface{}, error) {
 	if client == nil {
 		return shared.ErrorResponse("No API key provided"), nil
 	}
@@ -292,7 +292,7 @@ func handleServiceEnableSubdomainShared(ctx context.Context, client *sdk.Handler
 	return shared.TextResponse(fmt.Sprintf("Subdomain access enabled\nProcess ID: %s", string(output.Id))), nil
 }
 
-func handleServiceDisableSubdomainShared(ctx context.Context, client *sdk.Handler, args map[string]interface{}) (interface{}, error) {
+func handleServiceDisableSubdomain(ctx context.Context, client *sdk.Handler, args map[string]interface{}) (interface{}, error) {
 	if client == nil {
 		return shared.ErrorResponse("No API key provided"), nil
 	}
@@ -316,7 +316,7 @@ func handleServiceDisableSubdomainShared(ctx context.Context, client *sdk.Handle
 	return shared.TextResponse(fmt.Sprintf("Subdomain access disabled\nProcess ID: %s", string(output.Id))), nil
 }
 
-func handleServiceStartShared(ctx context.Context, client *sdk.Handler, args map[string]interface{}) (interface{}, error) {
+func handleServiceStart(ctx context.Context, client *sdk.Handler, args map[string]interface{}) (interface{}, error) {
 	if client == nil {
 		return shared.ErrorResponse("No API key provided"), nil
 	}
@@ -340,7 +340,7 @@ func handleServiceStartShared(ctx context.Context, client *sdk.Handler, args map
 	return shared.TextResponse(fmt.Sprintf("Service started\nProcess ID: %s", string(output.Id))), nil
 }
 
-func handleServiceStopShared(ctx context.Context, client *sdk.Handler, args map[string]interface{}) (interface{}, error) {
+func handleServiceStop(ctx context.Context, client *sdk.Handler, args map[string]interface{}) (interface{}, error) {
 	if client == nil {
 		return shared.ErrorResponse("No API key provided"), nil
 	}
@@ -365,7 +365,7 @@ func handleServiceStopShared(ctx context.Context, client *sdk.Handler, args map[
 }
 
 // Helper function to format service output
-func formatServiceShared(index int, service interface{}) string {
+func formatService(index int, service interface{}) string {
 	// Use reflection to access fields since the exact type may vary
 	v := reflect.ValueOf(service)
 

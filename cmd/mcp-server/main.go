@@ -34,8 +34,8 @@ func main() {
 	)
 	flag.Parse()
 
-	// Initialize shared tool registry first
-	handlers.RegisterShared()
+	// Initialize global tool registry first
+	handlers.InitializeRegistry()
 
 	// Create MCP server
 	server := mcp.NewServer(
@@ -113,8 +113,8 @@ func startHTTPServer(ctx context.Context, server *mcp.Server, host, port string)
 		Server: server,
 	}
 
-	// Use the shared handler for HTTP
-	if err := transport.StartHTTPServerShared(ctx, config); err != nil {
+	// Use the HTTP handler with global registry
+	if err := transport.StartHTTPServer(ctx, config); err != nil {
 		if err != http.ErrServerClosed && err != context.Canceled {
 			log.Fatalf("HTTP server error: %v", err)
 		}

@@ -14,8 +14,8 @@ import (
 	"github.com/zeropsio/zerops-go/sdk"
 )
 
-// RegisterKnowledgeShared registers knowledge base tools in the shared registry
-func RegisterKnowledgeShared() {
+// RegisterKnowledge registers knowledge base tools in the global registry
+func RegisterKnowledge() {
 	shared.GlobalRegistry.Register(&shared.ToolDefinition{
 		Name:        "knowledge_search",
 		Description: "Search Zerops knowledge base API for services, recipes, and deployment patterns",
@@ -33,7 +33,7 @@ func RegisterKnowledgeShared() {
 			},
 			"required": []string{"query"},
 		},
-		Handler: handleKnowledgeSearchShared,
+		Handler: handleKnowledgeSearch,
 	})
 
 	shared.GlobalRegistry.Register(&shared.ToolDefinition{
@@ -49,11 +49,11 @@ func RegisterKnowledgeShared() {
 			},
 			"required": []string{"id"},
 		},
-		Handler: handleKnowledgeGetShared,
+		Handler: handleKnowledgeGet,
 	})
 }
 
-func handleKnowledgeSearchShared(ctx context.Context, client *sdk.Handler, args map[string]interface{}) (interface{}, error) {
+func handleKnowledgeSearch(ctx context.Context, client *sdk.Handler, args map[string]interface{}) (interface{}, error) {
 	query, ok := args["query"].(string)
 	if !ok || query == "" {
 		return shared.ErrorResponse("Search query is required"), nil
@@ -132,7 +132,7 @@ func handleKnowledgeSearchShared(ctx context.Context, client *sdk.Handler, args 
 	return shared.TextResponse(message.String()), nil
 }
 
-func handleKnowledgeGetShared(ctx context.Context, client *sdk.Handler, args map[string]interface{}) (interface{}, error) {
+func handleKnowledgeGet(ctx context.Context, client *sdk.Handler, args map[string]interface{}) (interface{}, error) {
 	id, ok := args["id"].(string)
 	if !ok || id == "" {
 		return shared.ErrorResponse("Knowledge ID is required"), nil

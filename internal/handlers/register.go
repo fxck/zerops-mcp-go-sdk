@@ -10,15 +10,15 @@ import (
 	"github.com/zeropsio/zerops-go/sdk"
 )
 
-// RegisterShared initializes the shared tool registry
+// InitializeRegistry initializes the global tool registry
 // This should be called at startup before any transport is initialized
-func RegisterShared() {
-	// Register all tool handlers in the shared registry
-	tools.RegisterAuthShared()
-	tools.RegisterProjectsShared()
-	tools.RegisterServicesShared()
-	tools.RegisterDeployShared()
-	tools.RegisterKnowledgeShared()
+func InitializeRegistry() {
+	// Register all tool handlers in the global registry
+	tools.RegisterAuth()
+	tools.RegisterProjects()
+	tools.RegisterServices()
+	tools.RegisterDeploy()
+	tools.RegisterKnowledge()
 }
 
 // RegisterForMCP registers all tools with the MCP server for stdio transport
