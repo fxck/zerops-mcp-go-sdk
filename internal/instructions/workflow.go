@@ -60,6 +60,11 @@ knowledge_search("nodejs") → create multiple services → deploy with matching
 **Runtimes:** nodejs, python, php, go, rust, java, dotnet, ruby
 **Databases:** postgresql, mysql, mariadb, mongodb, keydb, elasticsearch  
 **Tools:** rabbitmq, redis, meilisearch, object-storage
+**Utility Services (require buildFromGit):** 
+- Adminer (database UI): https://github.com/zeropsio/recipe-adminer
+- Adminerevo (enhanced UI): https://github.com/zeropsio/recipe-adminerevo  
+- Mailpit (email testing): https://github.com/zeropsio/recipe-mailpit
+- S3Browser (S3 UI): https://github.com/zeropsio/recipe-s3browser
 
 Remember: Knowledge base first, then create!
 `

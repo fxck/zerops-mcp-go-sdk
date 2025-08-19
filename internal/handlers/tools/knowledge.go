@@ -212,8 +212,12 @@ func handleKnowledgeGet(ctx context.Context, client *sdk.Handler, args map[strin
 			// Check if there's a specific note about the recipe
 			message.WriteString("\nIMPORTANT for recipes:\n")
 			message.WriteString("- Use the EXACT YAML shown above\n")
-			message.WriteString("- Do NOT use 'php-apache' as a type (use 'php@8.3')\n")
-			message.WriteString("- The buildFromGit field handles the recipe setup\n\n")
+			message.WriteString("- The buildFromGit field is REQUIRED for utility services:\n")
+			message.WriteString("  * Adminer: https://github.com/zeropsio/recipe-adminer\n")
+			message.WriteString("  * Adminerevo: https://github.com/zeropsio/recipe-adminerevo\n")
+			message.WriteString("  * Mailpit: https://github.com/zeropsio/recipe-mailpit\n")
+			message.WriteString("  * S3Browser: https://github.com/zeropsio/recipe-s3browser\n")
+			message.WriteString("- These are pre-built Zerops recipes, NOT the original tool repos\n\n")
 		}
 	}
 	

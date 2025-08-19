@@ -205,6 +205,7 @@ Before creating services, ALWAYS search the knowledge base:
 2. Get exact type info: knowledge_get("services/mongodb")
 3. Use the EXACT type string from KB (e.g., "mongodb@7" not "mongodb@7.0")
 4. Hostname must be alphanumeric only (no hyphens)
+5. For utility services (Adminer, Mailpit, S3Browser), KEEP buildFromGit field!
 
 ## Common Service Types (always verify with KB first)
 - postgresql@16, mariadb@11, mongodb@7
