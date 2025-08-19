@@ -41,15 +41,52 @@ irm https://raw.githubusercontent.com/krls2020/zerops-mcp-go-sdk/main/install.ps
 ## Claude Desktop Setup
 
 ```bash
+# Quick setup
 export ZEROPS_API_KEY="your-api-key"
 claude mcp add zerops -s user ~/.local/bin/zerops-mcp
+```
+
+Or add to config manually (`~/Library/Application Support/Claude/claude_desktop_config.json`):
+
+```json
+{
+  "mcpServers": {
+    "zerops": {
+      "command": "/path/to/zerops-mcp",
+      "env": {
+        "ZEROPS_API_KEY": "your-api-key"
+      }
+    }
+  }
+}
 ```
 
 ## HTTP Server Setup
 
 ```bash
+# Start server
 ./zerops-mcp --transport http --port 8080
-# Clients authenticate via: Authorization: Bearer <api-key>
+```
+
+Add to Claude config (`~/Library/Application Support/Claude/claude_desktop_config.json`):
+
+```json
+{
+  "mcpServers": {
+    "zerops-remote": {
+      "command": "npx",
+      "args": ["@modelcontextprotocol/server-http", "http://your-server:8080"],
+      "env": {
+        "MCP_AUTH_HEADER": "Authorization: Bearer your-api-key"
+      }
+    }
+  }
+}
+```
+
+Or with Claude CLI:
+```bash
+claude mcp add zerops-remote --transport http --url http://your-server:8080 --header "Authorization: Bearer your-api-key"
 ```
 
 
@@ -60,15 +97,6 @@ claude mcp add zerops -s user ~/.local/bin/zerops-mcp
 **Services**: service_list, service_info, service_delete, service_enable_subdomain, service_disable_subdomain, service_start, service_stop  
 **Deployment**: deploy_validate, deploy_push  
 **Knowledge**: knowledge_search, knowledge_get
-
-## Recipe Import Requirements
-
-Recipe services require standard hostnames:
-- Adminer → `adminer`
-- Mailpit → `mailpit`
-- S3Browser → `s3browser`
-
-Custom names: import first, rename in GUI later.
 
 ## Development
 
