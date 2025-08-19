@@ -307,28 +307,19 @@ func handleProjectImport(ctx context.Context, client *sdk.Handler, args map[stri
 		// Provide helpful error guidance
 		errMsg := err.Error()
 		if strings.Contains(errMsg, "serviceStackTypeNotFound") {
-			// Try to extract the problematic service type
 			invalidType := extractInvalidServiceType(yamlContent)
-			suggestion := GetServiceTypeSuggestion(invalidType)
 			
-			helpMsg := "Service type not found.\n\n"
-			
-			if suggestion != "" {
-				helpMsg += fmt.Sprintf("PROBLEM: '%s' is not a valid service type\n", invalidType)
-				helpMsg += fmt.Sprintf("SOLUTION: %s\n\n", suggestion)
-			}
-			
-			helpMsg += "To fix:\n"
-			helpMsg += "1. Use knowledge_search('service_name') to find the correct service\n"
-			helpMsg += "2. Use knowledge_get('services/SERVICE') to get exact type string\n"
-			helpMsg += "3. Common services:\n"
-			helpMsg += "   - PHP: use 'php@8.3' (NOT php-apache or php-nginx)\n"
-			helpMsg += "   - PostgreSQL: use 'postgresql@16' (NOT postgres)\n"
-			helpMsg += "   - Redis-compatible: use 'valkey@7' (NOT redis)\n"
-			helpMsg += "   - MySQL-compatible: use 'mariadb@11' (NOT mysql)\n\n"
-			helpMsg += fmt.Sprintf("Original error: %v", err)
-			
-			return shared.ErrorResponse(helpMsg), nil
+			return shared.ErrorResponse(fmt.Sprintf(
+				"Service type '%s' not found.\n\n"+
+				"IMPORTANT: Always use knowledge base to get correct service types:\n"+
+				"1. knowledge_search('%s') - Find the service\n"+
+				"2. knowledge_get('services/SERVICE_NAME') - Get EXACT type string\n\n"+
+				"The knowledge base will show you:\n"+
+				"- Exact type string to use (e.g., 'php@8.3', 'mongodb@7')\n"+
+				"- Available versions\n"+
+				"- Required configuration options\n\n"+
+				"Never guess service types - always check the knowledge base first!",
+				invalidType, extractServiceName(yamlContent))), nil
 		}
 		return shared.ErrorResponse(fmt.Sprintf("Import failed: %v", err)), nil
 	}
@@ -337,29 +328,18 @@ func handleProjectImport(ctx context.Context, client *sdk.Handler, args map[stri
 	if err != nil {
 		errMsg := err.Error()
 		if strings.Contains(errMsg, "serviceStackTypeNotFound") {
-			// Try to extract the problematic service type
 			invalidType := extractInvalidServiceType(yamlContent)
-			suggestion := GetServiceTypeSuggestion(invalidType)
 			
-			helpMsg := "Service configuration error.\n\n"
-			
-			if suggestion != "" {
-				helpMsg += fmt.Sprintf("PROBLEM: '%s' is not a valid service type\n", invalidType)
-				helpMsg += fmt.Sprintf("SOLUTION: %s\n\n", suggestion)
-			}
-			
-			serviceName := extractServiceName(yamlContent)
-			helpMsg += fmt.Sprintf("To fix:\n")
-			helpMsg += fmt.Sprintf("1. Run: knowledge_search('%s') to find the service\n", serviceName)
-			helpMsg += "2. Run: knowledge_get('services/SERVICE_NAME') for exact configuration\n"
-			helpMsg += "3. Use the EXACT 'type' value from the knowledge base\n\n"
-			helpMsg += "Remember:\n"
-			helpMsg += "- PHP services use 'php@8.3' NOT 'php-apache@8.3'\n"
-			helpMsg += "- Use 'valkey@7' for Redis-compatible (NOT 'redis')\n"
-			helpMsg += "- Use 'mariadb@11' for MySQL-compatible (NOT 'mysql')\n\n"
-			helpMsg += fmt.Sprintf("Original error: %v", err)
-			
-			return shared.ErrorResponse(helpMsg), nil
+			return shared.ErrorResponse(fmt.Sprintf(
+				"Service type '%s' not found.\n\n"+
+				"SOLUTION: Use knowledge base to get the correct type:\n"+
+				"1. knowledge_search('%s') - Find available services\n"+
+				"2. knowledge_get('services/SERVICE_NAME') - Get exact configuration\n\n"+
+				"The knowledge base response will include:\n"+
+				"- EXACT TYPE TO USE: The correct type string\n"+
+				"- Example YAML: Ready-to-use configuration\n\n"+
+				"Always check knowledge base before importing - it has 159+ recipes and all service types.",
+				invalidType, extractServiceName(yamlContent))), nil
 		}
 		return shared.ErrorResponse(fmt.Sprintf("Failed to parse response: %v", err)), nil
 	}
