@@ -68,25 +68,17 @@ Or add to config manually (`~/Library/Application Support/Claude/claude_desktop_
 ./zerops-mcp --transport http --port 8080
 ```
 
-Add to Claude config (`~/Library/Application Support/Claude/claude_desktop_config.json`):
+### Connect with Claude Code
 
-```json
-{
-  "mcpServers": {
-    "zerops-remote": {
-      "command": "npx",
-      "args": ["@modelcontextprotocol/server-http", "http://your-server:8080"],
-      "env": {
-        "MCP_AUTH_HEADER": "Authorization: Bearer your-api-key"
-      }
-    }
-  }
-}
-```
-
-Or with Claude CLI:
 ```bash
-claude mcp add zerops-remote --transport http --url http://your-server:8080 --header "Authorization: Bearer your-api-key"
+# Using hosted server
+claude mcp add --transport http zerops https://your-server.zerops.app/mcp \
+  --header "Authorization: Bearer your-api-key"
+
+# Or using environment variable
+export ZEROPS_API_KEY="your-api-key"
+claude mcp add --transport http zerops https://your-server.zerops.app/mcp \
+  --header "Authorization: Bearer $ZEROPS_API_KEY"
 ```
 
 ### Testing the Server
