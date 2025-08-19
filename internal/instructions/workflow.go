@@ -66,6 +66,17 @@ knowledge_search("nodejs") → create multiple services → deploy with matching
 - Mailpit (email testing): https://github.com/zeropsio/recipe-mailpit
 - S3Browser (S3 UI): https://github.com/zeropsio/recipe-s3browser
 
+## Recipe with Custom Hostname (using extends)
+
+To use a recipe with a different hostname:
+
+    services:
+      - hostname: adminer          # Base recipe (required)
+        type: php@8.3
+        buildFromGit: https://github.com/zeropsio/recipe-adminer
+      - hostname: databasewizard    # Your custom name
+        extends: adminer            # Extends the base recipe
+
 Remember: Knowledge base first, then create!
 `
 }

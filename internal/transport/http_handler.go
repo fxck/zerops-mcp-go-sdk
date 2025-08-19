@@ -207,6 +207,15 @@ Before creating services, ALWAYS search the knowledge base:
 4. Hostname must be alphanumeric only (no hyphens)
 5. For utility services (Adminer, Mailpit, S3Browser), KEEP buildFromGit field!
 
+## Recipe with Custom Hostname
+Use 'extends' to alias recipes:
+services:
+  - hostname: adminer         # Base recipe
+    type: php@8.3
+    buildFromGit: https://github.com/zeropsio/recipe-adminer
+  - hostname: mycustomname    # Your alias
+    extends: adminer
+
 ## Common Service Types (always verify with KB first)
 - postgresql@16, mariadb@11, mongodb@7
 - nodejs@20, python@3.11, php@8.3 (NOT php-apache!)

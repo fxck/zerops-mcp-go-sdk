@@ -218,6 +218,17 @@ func handleKnowledgeGet(ctx context.Context, client *sdk.Handler, args map[strin
 			message.WriteString("  * Mailpit: https://github.com/zeropsio/recipe-mailpit\n")
 			message.WriteString("  * S3Browser: https://github.com/zeropsio/recipe-s3browser\n")
 			message.WriteString("- These are pre-built Zerops recipes, NOT the original tool repos\n\n")
+			message.WriteString("TO USE RECIPE WITH CUSTOM HOSTNAME:\n")
+			message.WriteString("```yaml\nservices:\n")
+			message.WriteString("  # Base recipe (required)\n")
+			message.WriteString("  - hostname: adminer\n")
+			message.WriteString("    type: php@8.3\n")
+			message.WriteString("    buildFromGit: https://github.com/zeropsio/recipe-adminer\n")
+			message.WriteString("  # Your custom-named service\n")
+			message.WriteString("  - hostname: mycustomname\n")
+			message.WriteString("    extends: adminer\n")
+			message.WriteString("```\n")
+			message.WriteString("The 'extends' field lets you alias recipes to custom names!\n\n")
 		}
 	}
 	
@@ -291,6 +302,27 @@ func extractYAMLFromRecipe(content interface{}) string {
 				}
 			}
 		}
+		
+		// Add a comment about using extends for custom hostnames
+		if strings.Contains(yaml, "buildFromGit") && strings.Contains(yaml, "recipe") {
+			yaml += "\n# To use with custom hostname, add:\n"
+			yaml += "#  - hostname: yourcustomname\n"
+			yaml += "#    extends: " // Will need to extract the base hostname
+			
+			// Extract the first hostname to use in extends example
+			lines := strings.Split(yaml, "\n")
+			for _, line := range lines {
+				if strings.Contains(line, "hostname:") {
+					parts := strings.Split(line, ":")
+					if len(parts) > 1 {
+						hostname := strings.TrimSpace(parts[1])
+						yaml += hostname + "\n"
+						break
+					}
+				}
+			}
+		}
+		
 		return yaml
 	}
 	return ""
