@@ -19,11 +19,17 @@ func InitializeRegistry() {
 	tools.RegisterServices()
 	tools.RegisterDeploy()
 	tools.RegisterKnowledge()
+	tools.RegisterDebug()
 }
 
 // RegisterForMCP registers all tools with the MCP server for stdio transport
 // It uses the shared registry to get tool definitions
 func RegisterForMCP(server *mcp.Server, client *sdk.Handler) error {
+	return RegisterForMCPWithClientInfo(server, client, nil)
+}
+
+// RegisterForMCPWithClientInfo registers all tools with client info support
+func RegisterForMCPWithClientInfo(server *mcp.Server, client *sdk.Handler, clientInfo **mcp.Implementation) error {
 	// Get all tools from the shared registry
 	toolDefs := shared.GlobalRegistry.List()
 
@@ -48,8 +54,11 @@ func RegisterForMCP(server *mcp.Server, client *sdk.Handler) error {
 				ctx = context.WithValue(ctx, "zeropsClient", client)
 			}
 			
-			// Note: Client info (name/version) is available during initialization
-			// but not accessible here in tool handlers through the session
+			// Add client info to context if available
+			if clientInfo != nil && *clientInfo != nil {
+				ctx = context.WithValue(ctx, "clientName", (*clientInfo).Name)
+				ctx = context.WithValue(ctx, "clientVersion", (*clientInfo).Version)
+			}
 
 			// Call the shared handler
 			result, err := td.Handler(ctx, client, args)

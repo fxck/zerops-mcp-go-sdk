@@ -114,7 +114,18 @@ func (h *HTTPHandler) processRequest(ctx context.Context, request map[string]int
 		if clientInfo, ok := params["clientInfo"].(map[string]interface{}); ok {
 			clientName, _ := clientInfo["name"].(string)
 			clientVersion, _ := clientInfo["version"].(string)
-			fmt.Fprintf(os.Stderr, "Client connected: %s v%s\n", clientName, clientVersion)
+			clientTitle, _ := clientInfo["title"].(string)
+			
+			fmt.Fprintf(os.Stderr, "\n=== CLIENT IDENTIFICATION (HTTP) ===\n")
+			fmt.Fprintf(os.Stderr, "Client: %s\n", clientName)
+			fmt.Fprintf(os.Stderr, "Version: %s\n", clientVersion)
+			if clientTitle != "" {
+				fmt.Fprintf(os.Stderr, "Title: %s\n", clientTitle)
+			}
+			if protocol, ok := params["protocolVersion"].(string); ok {
+				fmt.Fprintf(os.Stderr, "Protocol: %s\n", protocol)
+			}
+			fmt.Fprintf(os.Stderr, "===========================\n\n")
 			
 			// Store client info in context for use in tools
 			ctx = context.WithValue(ctx, "clientName", clientName)
@@ -156,6 +167,8 @@ func (h *HTTPHandler) processRequest(ctx context.Context, request map[string]int
 		toolName, _ := params["name"].(string)
 		toolArgs, _ := params["arguments"].(map[string]interface{})
 
+		// Note: Client info was stored in context during initialize
+		// but context is per-request in HTTP mode, so it's lost
 		// Call tool using shared registry
 		result, err := shared.GlobalRegistry.CallTool(ctx, toolName, toolArgs)
 		if err != nil {

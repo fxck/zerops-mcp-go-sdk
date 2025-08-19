@@ -3,6 +3,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"flag"
 	"fmt"
 	"log"
@@ -25,6 +26,9 @@ const (
 	apiEndpoint   = "https://api.app-prg1.zerops.io"
 )
 
+// Global storage for client info
+var globalClientInfo *mcp.Implementation
+
 func main() {
 	// Parse command-line flags
 	var (
@@ -37,7 +41,7 @@ func main() {
 	// Initialize global tool registry first
 	handlers.InitializeRegistry()
 
-	// Create MCP server
+	// Create MCP server with initialized handler
 	server := mcp.NewServer(
 		&mcp.Implementation{
 			Name:    serverName,
@@ -45,8 +49,40 @@ func main() {
 		},
 		&mcp.ServerOptions{
 			Instructions: instructions.GetWorkflowInstructions(),
+			InitializedHandler: func(ctx context.Context, session *mcp.ServerSession, params *mcp.InitializedParams) {
+				if globalClientInfo != nil {
+					fmt.Fprintf(os.Stderr, "✓ Client connected: %s v%s (session: %s)\n", 
+						globalClientInfo.Name, globalClientInfo.Version, session.ID())
+				} else {
+					fmt.Fprintf(os.Stderr, "✓ Client initialized session: %s\n", session.ID())
+				}
+			},
 		},
 	)
+
+	// Add middleware to capture client info from initialize request
+	server.AddReceivingMiddleware(func(handler mcp.MethodHandler[*mcp.ServerSession]) mcp.MethodHandler[*mcp.ServerSession] {
+		return func(ctx context.Context, session *mcp.ServerSession, method string, params mcp.Params) (mcp.Result, error) {
+			// Capture client info from initialize request
+			if method == "initialize" {
+				if paramsBytes, err := json.Marshal(params); err == nil {
+					var initParams mcp.InitializeParams
+					if err := json.Unmarshal(paramsBytes, &initParams); err == nil && initParams.ClientInfo != nil {
+						globalClientInfo = initParams.ClientInfo
+						fmt.Fprintf(os.Stderr, "\n=== CLIENT IDENTIFICATION ===\n")
+						fmt.Fprintf(os.Stderr, "Client: %s\n", initParams.ClientInfo.Name)
+						fmt.Fprintf(os.Stderr, "Version: %s\n", initParams.ClientInfo.Version)
+						if initParams.ClientInfo.Title != "" {
+							fmt.Fprintf(os.Stderr, "Title: %s\n", initParams.ClientInfo.Title)
+						}
+						fmt.Fprintf(os.Stderr, "Protocol: %s\n", initParams.ProtocolVersion)
+						fmt.Fprintf(os.Stderr, "===========================\n\n")
+					}
+				}
+			}
+			return handler(ctx, session, method, params)
+		}
+	})
 
 	// Handle transport-specific setup
 	var client *sdk.Handler
@@ -59,7 +95,7 @@ func main() {
 		client = createZeropsClient(apiKey)
 
 		// Register tools with MCP server for stdio
-		if err := handlers.RegisterForMCP(server, client); err != nil {
+		if err := handlers.RegisterForMCPWithClientInfo(server, client, &globalClientInfo); err != nil {
 			log.Fatalf("Failed to register handlers: %v", err)
 		}
 	} else if *transportMode == "http" {
