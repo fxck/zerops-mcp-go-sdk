@@ -14,7 +14,6 @@ import (
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"github.com/zerops-mcp-basic/internal/handlers"
-	"github.com/zerops-mcp-basic/internal/instructions"
 	"github.com/zerops-mcp-basic/internal/transport"
 	"github.com/zeropsio/zerops-go/sdk"
 	"github.com/zeropsio/zerops-go/sdkBase"
@@ -48,7 +47,6 @@ func main() {
 			Version: serverVersion,
 		},
 		&mcp.ServerOptions{
-			Instructions: instructions.GetWorkflowInstructions(),
 			InitializedHandler: func(ctx context.Context, session *mcp.ServerSession, params *mcp.InitializedParams) {
 				if globalClientInfo != nil {
 					fmt.Fprintf(os.Stderr, "✓ Client connected: %s v%s (session: %s)\n", 

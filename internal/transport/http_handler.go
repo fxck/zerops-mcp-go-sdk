@@ -11,7 +11,6 @@ import (
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"github.com/zerops-mcp-basic/internal/handlers/shared"
-	"github.com/zerops-mcp-basic/internal/instructions"
 	"github.com/zeropsio/zerops-go/sdk"
 	"github.com/zeropsio/zerops-go/sdkBase"
 )
@@ -179,7 +178,7 @@ func (h *HTTPHandler) processRequest(ctx context.Context, request map[string]int
 					"name":    "zerops-mcp",
 					"version": "1.0.0",
 				},
-				"instructions": instructions.GetDynamicInstructions(clientName, clientVersion),
+				// No special instructions for simplified MCP
 			},
 		}
 

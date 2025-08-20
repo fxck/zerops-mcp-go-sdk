@@ -13,13 +13,12 @@ import (
 // InitializeRegistry initializes the global tool registry
 // This should be called at startup before any transport is initialized
 func InitializeRegistry() {
-	// Register all tool handlers in the global registry
-	tools.RegisterAuth()
-	tools.RegisterProjects()
-	tools.RegisterServices()
-	tools.RegisterDeploy()
-	tools.RegisterKnowledge()
-	tools.RegisterDebug()
+	// Register simplified MCP tool handlers
+	tools.RegisterDiscovery()        // discovery tool
+	tools.RegisterServiceTools()     // get_service_types, import_services, enable_preview_subdomain, scale_service, get_service_logs
+	tools.RegisterEnvironment()      // set_project_env, set_service_env
+	tools.RegisterProcesses()        // get_running_processes
+	tools.RegisterKnowledgeBase()    // knowledge_base
 }
 
 // RegisterForMCP registers all tools with the MCP server for stdio transport
