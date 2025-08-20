@@ -124,6 +124,9 @@ func handleDiscovery(ctx context.Context, client *sdk.Handler, args map[string]i
 			"project": map[string]interface{}{
 				"id":   projectID,
 				"name": project.Name.Native(),
+				"environment_variables": map[string]interface{}{
+					"project_env_keys": projectEnvKeys,
+				},
 			},
 			"message": "No services found in this project. Use 'import_services' to add services.",
 		}, nil
@@ -150,7 +153,6 @@ func handleDiscovery(ctx context.Context, client *sdk.Handler, args map[string]i
 			"hostname": service.Name.Native(),
 			"type":     string(service.ServiceStackTypeVersionId),
 			"environment_variables": map[string]interface{}{
-				"project_env_keys": projectEnvKeys,
 				"service_env_keys": serviceEnvKeys,
 			},
 		}
@@ -163,6 +165,9 @@ func handleDiscovery(ctx context.Context, client *sdk.Handler, args map[string]i
 		"project": map[string]interface{}{
 			"id":   projectID,
 			"name": project.Name.Native(),
+			"environment_variables": map[string]interface{}{
+				"project_env_keys": projectEnvKeys,
+			},
 		},
 	}, nil
 }
