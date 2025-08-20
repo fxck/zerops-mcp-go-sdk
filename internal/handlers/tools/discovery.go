@@ -42,7 +42,7 @@ func handleDiscovery(ctx context.Context, client *sdk.Handler, args map[string]i
 		return shared.ErrorResponse("Project ID is required"), nil
 	}
 
-	// Get project details first
+	// Get project details first (we need clientId for searches)
 	projectPath := path.ProjectId{Id: uuid.ProjectId(projectID)}
 	projectResp, err := client.GetProject(ctx, projectPath)
 	if err != nil {
@@ -54,10 +54,43 @@ func handleDiscovery(ctx context.Context, client *sdk.Handler, args map[string]i
 		return shared.ErrorResponse(fmt.Sprintf("Failed to parse project: %v", err)), nil
 	}
 
-	// Get project environment variables (simplified)
+	// Search for the project to get envList
+	projectFilter := body.EsFilter{
+		Search: []body.EsSearchItem{
+			{
+				Name:     "id",
+				Operator: "eq",
+				Value:    types.String(projectID),
+			},
+			{
+				Name:     "clientId",
+				Operator: "eq",
+				Value:    projectOutput.ClientId.TypedString(),
+			},
+		},
+	}
+
+	projectSearchResp, err := client.PostProjectSearch(ctx, projectFilter)
+	if err != nil {
+		return shared.ErrorResponse(fmt.Sprintf("Failed to search project: %v", err)), nil
+	}
+
+	projectSearchOutput, err := projectSearchResp.Output()
+	if err != nil {
+		return shared.ErrorResponse(fmt.Sprintf("Failed to parse project search: %v", err)), nil
+	}
+
+	if len(projectSearchOutput.Items) == 0 {
+		return shared.ErrorResponse("Project not found"), nil
+	}
+
+	project := projectSearchOutput.Items[0]
+	
+	// Get project environment variables from envList
 	var projectEnvKeys []string
-	// Note: Project env vars would be fetched here if available in SDK
-	projectEnvKeys = append(projectEnvKeys, "env_configured")
+	for _, envItem := range project.EnvList {
+		projectEnvKeys = append(projectEnvKeys, envItem.Key.Native())
+	}
 
 	// Search for services in this specific project
 	serviceFilter := body.EsFilter{
@@ -90,7 +123,7 @@ func handleDiscovery(ctx context.Context, client *sdk.Handler, args map[string]i
 			"services": []interface{}{},
 			"project": map[string]interface{}{
 				"id":   projectID,
-				"name": projectOutput.Name.Native(),
+				"name": project.Name.Native(),
 			},
 			"message": "No services found in this project. Use 'import_services' to add services.",
 		}, nil
@@ -129,7 +162,7 @@ func handleDiscovery(ctx context.Context, client *sdk.Handler, args map[string]i
 		"count":    len(services),
 		"project": map[string]interface{}{
 			"id":   projectID,
-			"name": projectOutput.Name.Native(),
+			"name": project.Name.Native(),
 		},
 	}, nil
 }
