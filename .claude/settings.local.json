@@ -4,7 +4,9 @@
       "Bash(go mod:*)",
       "Bash(go doc:*)",
       "Bash(go build:*)",
-      "Bash(go run:*)"
+      "Bash(go run:*)",
+      "Bash(go get:*)",
+      "Bash(mv:*)"
     ],
     "deny": [],
     "ask": []
