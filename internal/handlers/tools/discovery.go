@@ -3,6 +3,7 @@ package tools
 import (
 	"context"
 	"fmt"
+	"os"
 
 	"github.com/zerops-mcp-basic/internal/handlers/shared"
 	"github.com/zeropsio/zerops-go/dto/input/body"
@@ -18,10 +19,10 @@ func RegisterDiscovery() {
 		Name:        "discovery",
 		Description: `ESSENTIAL FIRST STEP: Discovers all services in a project with their IDs, hostnames, service types, and environment variable availability.
 
-CRITICAL: This tool requires the project_id parameter. If you don't have the project ID:
-1. Check environment variables for $projectId or $ZEROPS_PROJECT_ID
-2. Ask the user to provide their project ID
-3. Never attempt discovery without a valid project ID
+CRITICAL: This tool requires a project ID. If you don't have the project ID:
+1. Check environment variable $projectId (automatically checked if parameter not provided)
+2. Pass project_id parameter explicitly
+3. Ask the user to provide their project ID if neither available
 
 Returns structured data about:
 - All services with their unique IDs (required for other tools)
@@ -35,11 +36,11 @@ Always use this tool first to understand the project structure before performing
 			"properties": map[string]interface{}{
 				"project_id": map[string]interface{}{
 					"type":        "string",
-					"description": "REQUIRED: Zerops project ID (UUID format). Get from environment variable $projectId or ask user.",
+					"description": "OPTIONAL: Zerops project ID (UUID format). If not provided, will check $projectId environment variable.",
 					"pattern":     "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
 				},
 			},
-			"required":             []string{"project_id"},
+			"required":             []string{},
 			"additionalProperties": false,
 		},
 		Handler: handleDiscovery,
@@ -51,10 +52,15 @@ func handleDiscovery(ctx context.Context, client *sdk.Handler, args map[string]i
 		return shared.ErrorResponse("No API key provided"), nil
 	}
 
-	// Get project ID parameter
+	// Get project ID parameter or from environment
 	projectID, ok := args["project_id"].(string)
 	if !ok || projectID == "" {
-		return shared.ErrorResponse("Project ID is required"), nil
+		// Check environment variable
+		if envProjectID := os.Getenv("projectId"); envProjectID != "" {
+			projectID = envProjectID
+		} else {
+			return shared.ErrorResponse("Project ID is required. Provide project_id parameter or set $projectId environment variable."), nil
+		}
 	}
 
 	// Get project details first (we need clientId for searches)
