@@ -11,9 +11,9 @@ case $(uname -sm) in
 esac
 
 if [ $# -eq 0 ]; then
-  mcp_uri="https://github.com/krls2020/zerops-mcp-go-sdk/releases/latest/download/zerops-mcp-${target}"
+  mcp_uri="https://github.com/fxck/zerops-mcp-go-sdk/releases/latest/download/zerops-mcp-${target}"
 else
-  mcp_uri="https://github.com/krls2020/zerops-mcp-go-sdk/releases/download/${1}/zerops-mcp-${target}"
+  mcp_uri="https://github.com/fxck/zerops-mcp-go-sdk/releases/download/${1}/zerops-mcp-${target}"
 fi
 
 bin_dir="$HOME/.local/bin"
@@ -95,5 +95,5 @@ echo "━━━━━━━━━━━━━━━━━━━━━━━━�
 echo "📚 Resources:"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo "• Get API key: https://app.zerops.io/settings/token-management"
-echo "• Documentation: https://github.com/krls2020/zerops-mcp-go-sdk"
+echo "• Documentation: https://github.com/fxck/zerops-mcp-go-sdk"
 echo "• Zerops Discord: https://discord.com/invite/WDvCZ54"
