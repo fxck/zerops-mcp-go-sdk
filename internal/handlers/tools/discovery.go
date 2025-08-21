@@ -16,16 +16,31 @@ import (
 func RegisterDiscovery() {
 	shared.GlobalRegistry.Register(&shared.ToolDefinition{
 		Name:        "discovery",
-		Description: "Returns all services with IDs, hostnames, types, and environment variables availability for a specific project",
+		Description: `ESSENTIAL FIRST STEP: Discovers all services in a project with their IDs, hostnames, service types, and environment variable availability.
+
+CRITICAL: This tool requires the project_id parameter. If you don't have the project ID:
+1. Check environment variables for $projectId or $ZEROPS_PROJECT_ID
+2. Ask the user to provide their project ID
+3. Never attempt discovery without a valid project ID
+
+Returns structured data about:
+- All services with their unique IDs (required for other tools)
+- Service hostnames and types
+- Available environment variables at project and service level
+- Current project configuration
+
+Always use this tool first to understand the project structure before performing other operations.`,
 		InputSchema: map[string]interface{}{
 			"type": "object",
 			"properties": map[string]interface{}{
 				"project_id": map[string]interface{}{
 					"type":        "string",
-					"description": "Project ID to get services from",
+					"description": "REQUIRED: Zerops project ID (UUID format). Get from environment variable $projectId or ask user.",
+					"pattern":     "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
 				},
 			},
-			"required": []string{"project_id"},
+			"required":             []string{"project_id"},
+			"additionalProperties": false,
 		},
 		Handler: handleDiscovery,
 	})

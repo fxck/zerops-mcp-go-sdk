@@ -13,16 +13,53 @@ import (
 func RegisterKnowledgeBase() {
 	shared.GlobalRegistry.Register(&shared.ToolDefinition{
 		Name:        "knowledge_base",
-		Description: "Get Zerops YAML examples and patterns for specified runtime",
+		Description: `Provides comprehensive YAML examples and deployment patterns for specific runtimes.
+
+AVAILABLE RUNTIMES:
+- Web: nodejs, python, go, php, rust
+- Databases: postgresql, mariadb, mongodb
+- Cache: redis, valkey, keydb
+- Storage: elasticsearch, objectstorage
+- Web servers: nginx, static
+
+RETURNS:
+- Import YAML examples (for import_services)
+- Deployment YAML examples (for zerops.yml)
+- Runtime-specific tips and best practices
+- Common configuration patterns
+
+EXAMPLES PROVIDED:
+- Basic single-service setup
+- Multi-service applications with databases
+- Production configurations with scaling
+- High-availability setups
+
+WHEN TO USE:
+- Before importing services to get correct YAML format
+- Learning Zerops configuration patterns
+- Setting up common application stacks
+- Getting runtime-specific recommendations
+
+FOLLOW-UP ACTIONS:
+- Copy YAML examples for import_services tool
+- Adapt examples for your specific needs
+- Check get_service_types for latest versions`,
 		InputSchema: map[string]interface{}{
 			"type": "object",
 			"properties": map[string]interface{}{
 				"runtime": map[string]interface{}{
 					"type":        "string",
-					"description": "Runtime type (e.g., 'nodejs', 'python', 'go', 'php', 'postgresql')",
+					"description": "REQUIRED: Runtime type to get examples for",
+					"enum": []interface{}{
+						"nodejs", "node", "python", "go", "golang", "php", "rust",
+						"postgresql", "postgres", "mariadb", "mysql", "mongodb", "mongo",
+						"redis", "valkey", "keydb", "elasticsearch", "rabbitmq",
+						"nginx", "static", "objectstorage",
+					},
 				},
 			},
-			"required": []string{"runtime"},
+			"required":             []string{"runtime"},
+			"additionalProperties": false,
 		},
 		Handler: handleKnowledgeBase,
 	})
@@ -89,21 +126,62 @@ func getNodejsKnowledge() interface{} {
       ramMax: 4`,
 		},
 		"deployment_yaml": `zerops:
-  - setup: app
+  - setup: prod
     build:
       base: nodejs@22
+      prepareCommands:
+        - npm install -g typescript
       buildCommands:
-        - npm ci
+        - npm i
+        - npm run build
+      deployFiles:
+        - ./dist
+        - ./node_modules
+        - ./package.json
+    run:
+      base: nodejs@22
+      ports:
+        - port: 3000
+          httpSupport: true
+      envVariables:
+        NODE_ENV: production
+        DB_NAME: db
+        DB_HOST: db
+        DB_USER: db
+        DB_PASS: ${db_password}
+      start: npm run start:prod
+      healthCheck:
+        httpGet:
+          port: 3000
+          path: /status
+
+  - setup: dev
+    build:
+      base: nodejs@22
+      # pre-install deps
+      buildCommands:
+        - npm i
+      # deploy the whole source
       deployFiles: ./
     run:
-      initCommands:
-        - npm run migrate
-      start: npm start`,
+      base: nodejs@22
+      envVariables:
+        DB_NAME: db
+        DB_HOST: db
+        DB_USER: db
+        DB_PASS: ${db_password}
+      ports:
+        - port: 3000
+          httpSupport: true
+      # user or agent will start the dev server
+      start: zsc noop`,
 		"tips": []string{
 			"Use nodejs@22 for latest LTS version",
 			"Enable subdomain for public access",
 			"Set minContainers: 2 for high availability",
 			"Use environment variables for configuration",
+			"Use 'prod' setup for production-like services, 'dev' for development/remote",
+			"Reference database password with ${db_password}",
 		},
 	}
 }
@@ -117,33 +195,27 @@ func getPythonKnowledge() interface{} {
     type: python@3.12
     enableSubdomainAccess: true
     minContainers: 1`,
-			"django": `services:
-  - hostname: django
+			"with_database": `services:
+  - hostname: app
     type: python@3.12
     enableSubdomainAccess: true
     minContainers: 1
-    ports:
-      - port: 8000
-        httpSupport: true
   - hostname: db
     type: postgresql@16
     mode: NON_HA`,
 		},
-		"deployment_yaml": `zerops:
-  - setup: app
-    build:
-      base: python@3.12
-      buildCommands:
-        - pip install -r requirements.txt
-      deployFiles: ./
-    run:
-      initCommands:
-        - python manage.py migrate
-      start: gunicorn app.wsgi:application`,
+		"deployment_yaml": `# Adapt the Node.js pattern above for Python:
+# - Use python@3.12 as base
+# - Replace npm commands with pip install -r requirements.txt
+# - Use appropriate Python start command (gunicorn, uvicorn, etc.)
+# - Adjust port numbers and health check paths
+# - Reference the Node.js example structure`,
+		"note": "Full Python zerops.yml examples coming soon. Use the Node.js pattern above as reference, adapting commands and runtime.",
 		"tips": []string{
 			"Use python@3.12 for latest stable version",
-			"Include requirements.txt for dependencies",
-			"Use gunicorn or uvicorn for production",
+			"Adapt Node.js zerops.yml pattern for Python",
+			"Replace npm commands with pip install",
+			"Use gunicorn or uvicorn for production start",
 		},
 	}
 }
@@ -166,19 +238,16 @@ func getGoKnowledge() interface{} {
     type: postgresql@16
     mode: HA`,
 		},
-		"deployment_yaml": `zerops:
-  - setup: app
-    build:
-      base: go@1.22
-      buildCommands:
-        - go mod download
-        - go build -o app ./cmd/main.go
-      deployFiles:
-        - app
-    run:
-      start: ./app`,
+		"deployment_yaml": `# Adapt the Node.js pattern above for Go:
+# - Use go@1.22 as base
+# - Replace npm commands with 'go mod download' and 'go build'
+# - Deploy the compiled binary
+# - Use './app' or similar as start command
+# - Reference the Node.js example structure`,
+		"note": "Full Go zerops.yml examples coming soon. Use the Node.js pattern above as reference, adapting commands and runtime.",
 		"tips": []string{
 			"Use go@1.22 for latest version",
+			"Adapt Node.js zerops.yml pattern for Go",
 			"Build binary in buildCommands",
 			"Deploy only the binary for smaller image",
 		},
@@ -206,20 +275,17 @@ func getPHPKnowledge() interface{} {
     type: valkey@7.2
     mode: NON_HA`,
 		},
-		"deployment_yaml": `zerops:
-  - setup: app
-    build:
-      base: php@8.3
-      buildCommands:
-        - composer install --no-dev
-      deployFiles: ./
-    run:
-      initCommands:
-        - php artisan migrate --force
-      documentRoot: public`,
+		"deployment_yaml": `# Adapt the Node.js pattern above for PHP:
+# - Use php@8.3 as base
+# - Replace npm commands with 'composer install --no-dev'
+# - Set documentRoot: public for frameworks like Laravel
+# - Use php artisan commands for Laravel
+# - Reference the Node.js example structure`,
+		"note": "Full PHP zerops.yml examples coming soon. Use the Node.js pattern above as reference, adapting commands and runtime.",
 		"tips": []string{
 			"Use php@8.3 for latest stable version",
-			"Set documentRoot for frameworks",
+			"Adapt Node.js zerops.yml pattern for PHP",
+			"Set documentRoot: public for frameworks",
 			"Use composer for dependency management",
 		},
 	}
@@ -322,7 +388,8 @@ func getCacheKnowledge() interface{} {
 func getGeneralKnowledge(runtime string) interface{} {
 	return map[string]interface{}{
 		"runtime": runtime,
-		"message": fmt.Sprintf("No specific examples for '%s'", runtime),
+		"message": fmt.Sprintf("Use the Node.js example as reference pattern for '%s'", runtime),
+		"reference": "Check 'nodejs' in knowledge_base for complete zerops.yml example",
 		"available_runtimes": []string{
 			"nodejs", "python", "go", "php",
 			"postgresql", "mariadb", "mongodb",
@@ -337,11 +404,13 @@ func getGeneralKnowledge(runtime string) interface{} {
     enableSubdomainAccess: true  # for web services
     minContainers: 1
     maxContainers: 3`,
+		"deployment_reference": "Adapt the Node.js zerops.yml pattern - change runtime, build commands, and start commands for your specific technology",
 		"tips": []string{
+			"Use knowledge_base('nodejs') to see complete zerops.yml example",
+			"Adapt Node.js pattern for your runtime",
 			"Check 'get_service_types' for available types",
 			"Use mode: HA for production databases",
 			"Enable subdomain for web services",
-			"Set container scaling for auto-scaling",
 		},
 	}
 }

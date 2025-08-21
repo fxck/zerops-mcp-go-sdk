@@ -16,24 +16,51 @@ func RegisterEnvironment() {
 	// Set project environment variable
 	shared.GlobalRegistry.Register(&shared.ToolDefinition{
 		Name:        "set_project_env",
-		Description: "Set a project-level environment variable",
+		Description: `Sets environment variables at the project level, making them available to all services.
+
+PROJECT ENVIRONMENT VARIABLES:
+- Available to ALL services in the project
+- Good for shared configuration (database URLs, API keys, etc.)
+- Override service-level variables with same name
+
+SECURITY:
+- Never use for sensitive data in logs
+- Consider using Zerops secrets for sensitive values
+- Environment variables are visible to all project services
+
+WHEN TO USE:
+- Shared database connection strings
+- API endpoints used by multiple services
+- Global application configuration
+- Feature flags
+
+NAMING CONVENTIONS:
+- Use UPPERCASE for environment variables
+- Use underscores for word separation
+- Prefix with app/service name for clarity: "MYAPP_DATABASE_URL"`,
 		InputSchema: map[string]interface{}{
 			"type": "object",
 			"properties": map[string]interface{}{
 				"project_id": map[string]interface{}{
 					"type":        "string",
-					"description": "Project ID",
+					"description": "REQUIRED: Project ID from discovery tool",
+					"pattern":     "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
 				},
 				"key": map[string]interface{}{
 					"type":        "string",
-					"description": "Environment variable key",
+					"description": "REQUIRED: Environment variable name (recommend UPPERCASE with underscores)",
+					"minLength":   1,
+					"maxLength":   255,
+					"pattern":     "^[A-Z][A-Z0-9_]*$",
 				},
 				"value": map[string]interface{}{
 					"type":        "string",
-					"description": "Environment variable value",
+					"description": "REQUIRED: Environment variable value",
+					"maxLength":   10000,
 				},
 			},
-			"required": []string{"project_id", "key", "value"},
+			"required":             []string{"project_id", "key", "value"},
+			"additionalProperties": false,
 		},
 		Handler: handleSetProjectEnv,
 	})
@@ -41,24 +68,51 @@ func RegisterEnvironment() {
 	// Set service environment variable
 	shared.GlobalRegistry.Register(&shared.ToolDefinition{
 		Name:        "set_service_env",
-		Description: "Set a service-level environment variable",
+		Description: `Sets environment variables for a specific service only.
+
+SERVICE ENVIRONMENT VARIABLES:
+- Available only to the specified service
+- Override project-level variables with same name
+- Good for service-specific configuration
+
+USE CASES:
+- Service-specific ports or configurations
+- Service-specific API keys or tokens
+- Runtime-specific settings
+- Service-specific feature flags
+
+PRIORITY ORDER (highest to lowest):
+1. Service-level environment variables
+2. Project-level environment variables  
+3. Default application values
+
+WHEN TO USE:
+- Service needs different config than others
+- Service-specific secrets or keys
+- Runtime-specific environment settings`,
 		InputSchema: map[string]interface{}{
 			"type": "object",
 			"properties": map[string]interface{}{
 				"service_id": map[string]interface{}{
 					"type":        "string",
-					"description": "Service ID",
+					"description": "REQUIRED: Service ID from discovery tool",
+					"pattern":     "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
 				},
 				"key": map[string]interface{}{
 					"type":        "string",
-					"description": "Environment variable key",
+					"description": "REQUIRED: Environment variable name (recommend UPPERCASE with underscores)",
+					"minLength":   1,
+					"maxLength":   255,
+					"pattern":     "^[A-Z][A-Z0-9_]*$",
 				},
 				"value": map[string]interface{}{
 					"type":        "string",
-					"description": "Environment variable value",
+					"description": "REQUIRED: Environment variable value",
+					"maxLength":   10000,
 				},
 			},
-			"required": []string{"service_id", "key", "value"},
+			"required":             []string{"service_id", "key", "value"},
+			"additionalProperties": false,
 		},
 		Handler: handleSetServiceEnv,
 	})

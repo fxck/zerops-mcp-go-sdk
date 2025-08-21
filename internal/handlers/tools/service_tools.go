@@ -20,10 +20,30 @@ func RegisterServiceTools() {
 	// Get service types
 	shared.GlobalRegistry.Register(&shared.ToolDefinition{
 		Name:        "get_service_types",
-		Description: "Returns array of available service types (e.g., nodejs@22, postgresql@17, valkey@7.2, objectstorage)",
+		Description: `Returns comprehensive list of available Zerops service types and versions.
+
+WHEN TO USE:
+- Before importing services to verify correct type names
+- To explore available runtime options
+- When service import fails with "serviceStackTypeNotFound"
+
+IMPORTANT: Service types use specific naming format:
+- Format: "runtime@version" (e.g., "nodejs@22", "postgresql@16") 
+- NOT "node@22" or "postgres@16"
+- NOT "php-apache@8.3" (use "php@8.3")
+
+Returns current available types including:
+- Runtime services: nodejs, python, go, php, rust, etc.
+- Databases: postgresql, mariadb, mongodb, etc. 
+- Cache: redis, valkey, keydb
+- Storage: objectstorage, elasticsearch
+- Web servers: nginx, static
+
+Use knowledge_base tool for detailed configuration examples.`,
 		InputSchema: map[string]interface{}{
-			"type":       "object",
-			"properties": map[string]interface{}{},
+			"type":                 "object",
+			"properties":           map[string]interface{}{},
+			"additionalProperties": false,
 		},
 		Handler: handleGetServiceTypes,
 	})
@@ -31,20 +51,50 @@ func RegisterServiceTools() {
 	// Import services
 	shared.GlobalRegistry.Register(&shared.ToolDefinition{
 		Name:        "import_services",
-		Description: "Import services into a project using YAML configuration",
+		Description: `Imports services into a Zerops project using YAML configuration.
+
+CRITICAL REQUIREMENTS:
+1. project_id: Must be valid UUID (get from discovery tool)
+2. yaml: Must be valid YAML with correct service type names
+
+BEFORE USING THIS TOOL:
+1. Run get_service_types to verify service type names
+2. Use knowledge_base for runtime-specific examples
+3. Validate hostnames are alphanumeric (no special characters)
+
+YAML STRUCTURE:
+services:
+  - hostname: servicename    # alphanumeric only, no hyphens/underscores
+    type: runtime@version    # exact format from get_service_types
+    mode: NON_HA            # or HA for high availability
+    enableSubdomainAccess: true  # for web services
+    minContainers: 1
+
+COMMON ERRORS:
+- "serviceStackTypeNotFound": Wrong service type name, check get_service_types
+- Invalid hostname: Use alphanumeric characters only
+- YAML syntax errors: Validate YAML structure
+
+EXAMPLES:
+- Node.js app: type: nodejs@22
+- PostgreSQL DB: type: postgresql@16, mode: NON_HA
+- PHP app: type: php@8.3 (NOT php-apache)`,
 		InputSchema: map[string]interface{}{
 			"type": "object",
 			"properties": map[string]interface{}{
 				"project_id": map[string]interface{}{
 					"type":        "string",
-					"description": "Project ID to import services into",
+					"description": "REQUIRED: Zerops project ID where services will be created",
+					"pattern":     "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
 				},
 				"yaml": map[string]interface{}{
 					"type":        "string",
-					"description": "YAML configuration for services to import",
+					"description": "REQUIRED: YAML configuration for services. Must include 'services' array with hostname, type, and optional configuration.",
+					"minLength":   10,
 				},
 			},
-			"required": []string{"project_id", "yaml"},
+			"required":             []string{"project_id", "yaml"},
+			"additionalProperties": false,
 		},
 		Handler: handleImportServices,
 	})
@@ -52,16 +102,35 @@ func RegisterServiceTools() {
 	// Enable preview subdomain
 	shared.GlobalRegistry.Register(&shared.ToolDefinition{
 		Name:        "enable_preview_subdomain",
-		Description: "Enable public preview subdomain access for a service",
+		Description: `Enables public subdomain access for a web service, making it accessible via HTTPS URL.
+
+WHEN TO USE:
+- After importing web services (nodejs, php, python, go, etc.)
+- When you need public access to a service
+- For frontend applications or APIs
+
+REQUIREMENTS:
+- service_id: Get from discovery tool
+- Service must be a web service (not databases)
+- Service must have appropriate port configuration
+
+RESULT:
+- Generates public URL: https://servicename-projectname.prg1.zerops.app
+- Enables HTTPS access with automatic SSL certificate
+- URL becomes immediately accessible once process completes
+
+NOTE: Only works for web services. Databases and internal services don't need subdomains.`,
 		InputSchema: map[string]interface{}{
 			"type": "object",
 			"properties": map[string]interface{}{
 				"service_id": map[string]interface{}{
 					"type":        "string",
-					"description": "Service ID",
+					"description": "REQUIRED: Service ID from discovery tool. Must be a web service (not database).",
+					"pattern":     "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
 				},
 			},
-			"required": []string{"service_id"},
+			"required":             []string{"service_id"},
+			"additionalProperties": false,
 		},
 		Handler: handleEnablePreviewSubdomain,
 	})
@@ -69,40 +138,74 @@ func RegisterServiceTools() {
 	// Scale service
 	shared.GlobalRegistry.Register(&shared.ToolDefinition{
 		Name:        "scale_service",
-		Description: "Scale service resources and containers",
+		Description: `Configures scaling parameters for a service including CPU, RAM, and container count.
+
+SCALING OPTIONS:
+- CPU: 0.25 to 20 cores (decimal values allowed)
+- RAM: 0.5 to 32 GB (decimal values allowed)  
+- Containers: 1 to 6 containers per service
+
+AUTO-SCALING:
+- Set min/max values for automatic scaling based on load
+- Single values set fixed allocation
+- Leave parameters empty to keep current settings
+
+EXAMPLES:
+- Basic: min_cpu: 1, max_cpu: 2, min_ram: 1, max_ram: 2
+- Fixed: min_cpu: 2, max_cpu: 2 (no auto-scaling)
+- High-performance: min_cpu: 4, max_cpu: 8, min_containers: 2
+
+WHEN TO USE:
+- After service creation for performance optimization
+- When experiencing resource constraints
+- For production scaling configuration`,
 		InputSchema: map[string]interface{}{
 			"type": "object",
 			"properties": map[string]interface{}{
 				"service_id": map[string]interface{}{
 					"type":        "string",
-					"description": "Service ID",
+					"description": "REQUIRED: Service ID from discovery tool",
+					"pattern":     "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
 				},
 				"min_cpu": map[string]interface{}{
 					"type":        "number",
-					"description": "Minimum CPU cores",
+					"description": "Minimum CPU cores (0.25 to 20). Decimal values allowed.",
+					"minimum":     0.25,
+					"maximum":     20,
 				},
 				"max_cpu": map[string]interface{}{
 					"type":        "number",
-					"description": "Maximum CPU cores",
+					"description": "Maximum CPU cores (0.25 to 20). Must be >= min_cpu.",
+					"minimum":     0.25,
+					"maximum":     20,
 				},
 				"min_ram": map[string]interface{}{
 					"type":        "number",
-					"description": "Minimum RAM in GB",
+					"description": "Minimum RAM in GB (0.5 to 32). Decimal values allowed.",
+					"minimum":     0.5,
+					"maximum":     32,
 				},
 				"max_ram": map[string]interface{}{
 					"type":        "number",
-					"description": "Maximum RAM in GB",
+					"description": "Maximum RAM in GB (0.5 to 32). Must be >= min_ram.",
+					"minimum":     0.5,
+					"maximum":     32,
 				},
 				"min_containers": map[string]interface{}{
 					"type":        "integer",
-					"description": "Minimum number of containers",
+					"description": "Minimum container count (1 to 6)",
+					"minimum":     1,
+					"maximum":     6,
 				},
 				"max_containers": map[string]interface{}{
 					"type":        "integer",
-					"description": "Maximum number of containers",
+					"description": "Maximum container count (1 to 6). Must be >= min_containers.",
+					"minimum":     1,
+					"maximum":     6,
 				},
 			},
-			"required": []string{"service_id"},
+			"required":             []string{"service_id"},
+			"additionalProperties": false,
 		},
 		Handler: handleScaleService,
 	})
@@ -110,24 +213,54 @@ func RegisterServiceTools() {
 	// Get service logs
 	shared.GlobalRegistry.Register(&shared.ToolDefinition{
 		Name:        "get_service_logs",
-		Description: "Get service logs with optional filtering",
+		Description: `Retrieves logs from a specific service with optional filtering.
+
+LOG OPTIONS:
+- lines: Number of recent log lines (default: 100, max: 1000)
+- since: Time period for logs (e.g., "1h", "30m", "24h")
+
+TIME FORMATS:
+- "1h" = last hour
+- "30m" = last 30 minutes  
+- "24h" = last 24 hours
+- "7d" = last 7 days
+
+WHEN TO USE:
+- Debugging service issues
+- Monitoring application behavior
+- Checking deployment status
+- Investigating errors
+
+LOG TYPES:
+- Application logs (stdout/stderr)
+- System logs
+- Build logs
+- Runtime logs
+
+NOTE: Large log requests may take time. Start with smaller line counts.`,
 		InputSchema: map[string]interface{}{
 			"type": "object",
 			"properties": map[string]interface{}{
 				"service_id": map[string]interface{}{
 					"type":        "string",
-					"description": "Service ID",
+					"description": "REQUIRED: Service ID from discovery tool",
+					"pattern":     "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
 				},
 				"lines": map[string]interface{}{
 					"type":        "integer",
-					"description": "Number of log lines to retrieve (default: 100)",
+					"description": "Number of log lines to retrieve (1-1000, default: 100)",
+					"minimum":     1,
+					"maximum":     1000,
+					"default":     100,
 				},
 				"since": map[string]interface{}{
 					"type":        "string",
-					"description": "Get logs since this time (e.g., '1h', '30m')",
+					"description": "Get logs since this time period (e.g., '1h', '30m', '24h', '7d')",
+					"pattern":     "^\\d+[mhd]$",
 				},
 			},
-			"required": []string{"service_id"},
+			"required":             []string{"service_id"},
+			"additionalProperties": false,
 		},
 		Handler: handleGetServiceLogs,
 	})

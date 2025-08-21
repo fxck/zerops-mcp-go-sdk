@@ -16,15 +16,39 @@ import (
 func RegisterProcesses() {
 	shared.GlobalRegistry.Register(&shared.ToolDefinition{
 		Name:        "get_running_processes",
-		Description: "Get running processes, optionally filtered by service",
+		Description: `Retrieves information about running processes, optionally filtered by service.
+
+PROCESS INFORMATION:
+- Process IDs and status
+- Creation timestamps
+- Associated service information
+- Process state and metadata
+
+FILTERING OPTIONS:
+- No service_id: Returns all processes across all services
+- With service_id: Returns processes only for specified service
+
+PROCESS STATES:
+- running: Process is actively running
+- completed: Process finished successfully
+- failed: Process encountered an error
+- pending: Process is queued/starting
+
+WHEN TO USE:
+- Monitoring service deployments
+- Checking process status after operations
+- Debugging service issues
+- Tracking long-running operations`,
 		InputSchema: map[string]interface{}{
 			"type": "object",
 			"properties": map[string]interface{}{
 				"service_id": map[string]interface{}{
 					"type":        "string",
-					"description": "Optional service ID to filter processes",
+					"description": "OPTIONAL: Service ID to filter processes. If omitted, returns all processes.",
+					"pattern":     "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
 				},
 			},
+			"additionalProperties": false,
 		},
 		Handler: handleGetRunningProcesses,
 	})
