@@ -3,6 +3,7 @@ package tools
 import (
 	"context"
 	"fmt"
+	"os"
 	"strings"
 	"time"
 
@@ -84,7 +85,7 @@ EXAMPLES:
 			"properties": map[string]interface{}{
 				"project_id": map[string]interface{}{
 					"type":        "string",
-					"description": "REQUIRED: Zerops project ID where services will be created",
+					"description": "OPTIONAL: Zerops project ID where services will be created. If not provided, will check $projectId environment variable.",
 					"pattern":     "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
 				},
 				"yaml": map[string]interface{}{
@@ -93,7 +94,7 @@ EXAMPLES:
 					"minLength":   10,
 				},
 			},
-			"required":             []string{"project_id", "yaml"},
+			"required":             []string{"yaml"},
 			"additionalProperties": false,
 		},
 		Handler: handleImportServices,
@@ -322,7 +323,12 @@ func handleImportServices(ctx context.Context, client *sdk.Handler, args map[str
 
 	projectID, ok := args["project_id"].(string)
 	if !ok || projectID == "" {
-		return shared.ErrorResponse("Project ID is required"), nil
+		// Check environment variable
+		if envProjectID := os.Getenv("projectId"); envProjectID != "" {
+			projectID = envProjectID
+		} else {
+			return shared.ErrorResponse("Project ID is required. Provide project_id parameter or set $projectId environment variable."), nil
+		}
 	}
 
 	yamlContent, ok := args["yaml"].(string)
@@ -379,25 +385,10 @@ func handleEnablePreviewSubdomain(ctx context.Context, client *sdk.Handler, args
 		return shared.ErrorResponse(fmt.Sprintf("Failed to parse response: %v", err)), nil
 	}
 
-	// Get service details to provide the URL
-	serviceResp, err := client.GetServiceStack(ctx, servicePath)
-	if err == nil {
-		if serviceOutput, err := serviceResp.Output(); err == nil {
-			subdomainURL := fmt.Sprintf("https://%s-%s.prg1.zerops.app",
-				serviceOutput.Name.Native(),
-				serviceOutput.Project.Name.Native())
-			
-			return map[string]interface{}{
-				"process_id": string(output.Id),
-				"status":     "subdomain_enabled",
-				"url":        subdomainURL,
-			}, nil
-		}
-	}
-
 	return map[string]interface{}{
 		"process_id": string(output.Id),
-		"status":     "subdomain_enabled",
+		"status":     "process_started",
+		"message":    "Subdomain enablement started. Use 'get_running_processes' with this service_id to check progress. Once completed, use 'discovery' to see the actual subdomain URL.",
 	}, nil
 }
 

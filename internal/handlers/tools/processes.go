@@ -25,8 +25,9 @@ PROCESS INFORMATION:
 - Process state and metadata
 
 FILTERING OPTIONS:
-- No service_id: Returns all processes across all services
+- No service_id: Returns all processes across all services (limited to 50)
 - With service_id: Returns processes only for specified service
+- Use limit parameter to control response size
 
 PROCESS STATES:
 - running: Process is actively running
@@ -47,6 +48,13 @@ WHEN TO USE:
 					"description": "OPTIONAL: Service ID to filter processes. If omitted, returns all processes.",
 					"pattern":     "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
 				},
+				"limit": map[string]interface{}{
+					"type":        "integer",
+					"description": "OPTIONAL: Maximum number of processes to return (1-100, default: 20)",
+					"minimum":     1,
+					"maximum":     100,
+					"default":     20,
+				},
 			},
 			"additionalProperties": false,
 		},
@@ -57,6 +65,12 @@ WHEN TO USE:
 func handleGetRunningProcesses(ctx context.Context, client *sdk.Handler, args map[string]interface{}) (interface{}, error) {
 	if client == nil {
 		return shared.ErrorResponse("No API key provided"), nil
+	}
+
+	// Get limit parameter
+	limit := 20 // default
+	if l, ok := args["limit"].(float64); ok && l > 0 && l <= 100 {
+		limit = int(l)
 	}
 
 	// Check if service_id is provided
@@ -77,13 +91,18 @@ func handleGetRunningProcesses(ctx context.Context, client *sdk.Handler, args ma
 			return shared.ErrorResponse(fmt.Sprintf("Failed to parse service: %v", err)), nil
 		}
 
-		// Get processes for this service
+		// Get RUNNING processes for this service
 		processFilter := body.EsFilter{
 			Search: []body.EsSearchItem{
 				{
 					Name:     "serviceStackId",
 					Operator: "eq",
 					Value:    types.String(serviceID),
+				},
+				{
+					Name:     "status",
+					Operator: "eq",
+					Value:    types.String("running"),
 				},
 			},
 		}
@@ -99,7 +118,10 @@ func handleGetRunningProcesses(ctx context.Context, client *sdk.Handler, args ma
 		}
 
 		var processes []map[string]interface{}
-		for _, process := range processOutput.Items {
+		for i, process := range processOutput.Items {
+			if i >= limit {
+				break
+			}
 			processInfo := map[string]interface{}{
 				"id":           string(process.Id),
 				"status":       string(process.Status),
@@ -130,14 +152,22 @@ func handleGetRunningProcesses(ctx context.Context, client *sdk.Handler, args ma
 
 	var allProcesses []map[string]interface{}
 
-	// Get processes for all clients
+	// Get RUNNING processes for all clients
 	for _, clientUser := range userOutput.ClientUserList {
+		if len(allProcesses) >= limit {
+			break
+		}
 		processFilter := body.EsFilter{
 			Search: []body.EsSearchItem{
 				{
 					Name:     "clientId",
 					Operator: "eq",
 					Value:    clientUser.ClientId.TypedString(),
+				},
+				{
+					Name:     "status",
+					Operator: "eq",
+					Value:    types.String("running"),
 				},
 			},
 		}
@@ -153,14 +183,15 @@ func handleGetRunningProcesses(ctx context.Context, client *sdk.Handler, args ma
 		}
 
 		for _, process := range processOutput.Items {
+			if len(allProcesses) >= limit {
+				break
+			}
 			processInfo := map[string]interface{}{
-				"id":       string(process.Id),
-				"status":   string(process.Status),
-				"created":  process.Created.Format("2006-01-02 15:04:05"),
+				"id":      string(process.Id),
+				"status":  string(process.Status),
+				"created": process.Created.Format("2006-01-02 15:04:05"),
 			}
 			
-			// Add more info if needed
-
 			allProcesses = append(allProcesses, processInfo)
 		}
 	}
@@ -172,8 +203,15 @@ func handleGetRunningProcesses(ctx context.Context, client *sdk.Handler, args ma
 		}, nil
 	}
 
-	return map[string]interface{}{
+	result := map[string]interface{}{
 		"processes": allProcesses,
 		"count":     len(allProcesses),
-	}, nil
+		"limit":     limit,
+	}
+	
+	if len(allProcesses) == limit {
+		result["note"] = fmt.Sprintf("Results limited to %d processes. Use 'limit' parameter to see more or filter by service_id.", limit)
+	}
+	
+	return result, nil
 }

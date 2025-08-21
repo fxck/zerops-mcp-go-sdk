@@ -3,6 +3,7 @@ package tools
 import (
 	"context"
 	"fmt"
+	"os"
 
 	"github.com/zerops-mcp-basic/internal/handlers/shared"
 	"github.com/zeropsio/zerops-go/dto/input/body"
@@ -43,7 +44,7 @@ NAMING CONVENTIONS:
 			"properties": map[string]interface{}{
 				"project_id": map[string]interface{}{
 					"type":        "string",
-					"description": "REQUIRED: Project ID from discovery tool",
+					"description": "OPTIONAL: Project ID. If not provided, will check $projectId environment variable.",
 					"pattern":     "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
 				},
 				"key": map[string]interface{}{
@@ -59,7 +60,7 @@ NAMING CONVENTIONS:
 					"maxLength":   10000,
 				},
 			},
-			"required":             []string{"project_id", "key", "value"},
+			"required":             []string{"key", "value"},
 			"additionalProperties": false,
 		},
 		Handler: handleSetProjectEnv,
@@ -125,7 +126,12 @@ func handleSetProjectEnv(ctx context.Context, client *sdk.Handler, args map[stri
 
 	projectID, ok := args["project_id"].(string)
 	if !ok || projectID == "" {
-		return shared.ErrorResponse("Project ID is required"), nil
+		// Check environment variable
+		if envProjectID := os.Getenv("projectId"); envProjectID != "" {
+			projectID = envProjectID
+		} else {
+			return shared.ErrorResponse("Project ID is required. Provide project_id parameter or set $projectId environment variable."), nil
+		}
 	}
 
 	key, ok := args["key"].(string)

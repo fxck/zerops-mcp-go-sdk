@@ -169,6 +169,41 @@ func handleDiscovery(ctx context.Context, client *sdk.Handler, args map[string]i
 			}
 		}
 
+		// Get running processes for this service
+		var runningProcesses []map[string]interface{}
+		processFilter := body.EsFilter{
+			Search: []body.EsSearchItem{
+				{
+					Name:     "serviceStackId",
+					Operator: "eq",
+					Value:    types.String(string(service.Id)),
+				},
+				{
+					Name:     "status",
+					Operator: "eq",
+					Value:    types.String("running"),
+				},
+			},
+		}
+		processResp, err := client.PostProcessSearch(ctx, processFilter)
+		if err == nil {
+			if processOutput, err := processResp.Output(); err == nil {
+				for _, process := range processOutput.Items {
+					runningProcesses = append(runningProcesses, map[string]interface{}{
+						"id":      string(process.Id),
+						"status":  string(process.Status),
+						"created": process.Created.Format("2006-01-02 15:04:05"),
+					})
+				}
+			}
+		}
+
+		// TODO: Get public access info (HTTP routing, port routing)
+		// Need to find correct SDK methods for routing information
+		var publicAccess []map[string]interface{}
+		// For now, just indicate if subdomain access might be enabled
+		// This would need proper SDK methods to get actual routing info
+
 		serviceInfo := map[string]interface{}{
 			"id":       string(service.Id),
 			"hostname": service.Name.Native(),
@@ -176,6 +211,8 @@ func handleDiscovery(ctx context.Context, client *sdk.Handler, args map[string]i
 			"environment_variables": map[string]interface{}{
 				"service_env_keys": serviceEnvKeys,
 			},
+			"running_processes": runningProcesses,
+			"public_access":     publicAccess,
 		}
 		services = append(services, serviceInfo)
 	}
