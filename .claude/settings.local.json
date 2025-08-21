@@ -6,7 +6,8 @@
       "Bash(go build:*)",
       "Bash(go run:*)",
       "Bash(go get:*)",
-      "Bash(mv:*)"
+      "Bash(mv:*)",
+      "WebFetch(domain:github.com)"
     ],
     "deny": [],
     "ask": []

@@ -89,9 +89,15 @@ func (h *HTTPHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 	defer r.Body.Close()
 
+	// Log the raw request for debugging
+	fmt.Fprintf(os.Stderr, "\n=== RAW REQUEST ===\n")
+	fmt.Fprintf(os.Stderr, "Body: %s\n", string(body))
+	fmt.Fprintf(os.Stderr, "==================\n\n")
+
 	// Parse JSON-RPC request
 	var request map[string]interface{}
 	if err := json.Unmarshal(body, &request); err != nil {
+		fmt.Fprintf(os.Stderr, "JSON Parse Error: %v\n", err)
 		http.Error(w, "Invalid JSON", http.StatusBadRequest)
 		return
 	}
@@ -108,6 +114,13 @@ func (h *HTTPHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	// Process the request
 	response := h.processRequest(ctx, request)
+
+	// Log the response for debugging
+	if responseBytes, err := json.MarshalIndent(response, "", "  "); err == nil {
+		fmt.Fprintf(os.Stderr, "\n=== RESPONSE ===\n")
+		fmt.Fprintf(os.Stderr, "%s\n", string(responseBytes))
+		fmt.Fprintf(os.Stderr, "================\n\n")
+	}
 
 	// Send response
 	w.Header().Set("Content-Type", "application/json")
