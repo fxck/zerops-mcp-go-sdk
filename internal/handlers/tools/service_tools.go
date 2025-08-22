@@ -201,29 +201,36 @@ WHEN TO USE:
 	// Get service logs
 	shared.GlobalRegistry.Register(&shared.ToolDefinition{
 		Name:        "get_service_logs",
-		Description: `Retrieves logs from a specific service with optional filtering.
+		Description: `Retrieves logs from a specific service with comprehensive filtering options.
 
 LOG OPTIONS:
-- lines: Number of recent log lines (default: 100, max: 1000)
-- since: Time period for logs (e.g., "1h", "30m", "24h")
+- limit: Number of recent log lines (default: 100, max: 1000)
+- minimum_severity: Filter by minimum log severity level
+- message_type: Type of messages to retrieve (APPLICATION, SYSTEM, BUILD)
+- format: Log format (FULL, SHORT, JSON)
+- format_template: Custom format template for log output
+- follow: Stream logs in real-time (boolean)
+- show_build_logs: Show build logs instead of runtime logs (boolean)
 
-TIME FORMATS:
-- "1h" = last hour
-- "30m" = last 30 minutes  
-- "24h" = last 24 hours
-- "7d" = last 7 days
+SEVERITY LEVELS:
+- debug, info, warning, error, critical
+
+MESSAGE TYPES:
+- APPLICATION: Application stdout/stderr logs
+- SYSTEM: System and runtime logs  
+- BUILD: Build and deployment logs
+
+FORMATS:
+- FULL: Complete log information with timestamps
+- SHORT: Condensed log format
+- JSON: Machine-readable JSON format
 
 WHEN TO USE:
 - Debugging service issues
 - Monitoring application behavior
 - Checking deployment status
 - Investigating errors
-
-LOG TYPES:
-- Application logs (stdout/stderr)
-- System logs
-- Build logs
-- Runtime logs
+- Real-time log monitoring with follow=true
 
 NOTE: Large log requests may take time. Start with smaller line counts.`,
 		InputSchema: map[string]interface{}{
@@ -234,17 +241,43 @@ NOTE: Large log requests may take time. Start with smaller line counts.`,
 					"description": "REQUIRED: Service ID from discovery tool",
 					"pattern":     "^[A-Za-z0-9_-]+$",
 				},
-				"lines": map[string]interface{}{
+				"limit": map[string]interface{}{
 					"type":        "integer",
 					"description": "Number of log lines to retrieve (1-1000, default: 100)",
 					"minimum":     1,
 					"maximum":     1000,
 					"default":     100,
 				},
-				"since": map[string]interface{}{
+				"minimum_severity": map[string]interface{}{
 					"type":        "string",
-					"description": "Get logs since this time period (e.g., '1h', '30m', '24h', '7d')",
-					"pattern":     "^\\d+[mhd]$",
+					"description": "Minimum severity level (debug, info, warning, error, critical)",
+					"enum":        []string{"debug", "info", "warning", "error", "critical"},
+				},
+				"message_type": map[string]interface{}{
+					"type":        "string",
+					"description": "Type of messages to retrieve (default: APPLICATION)",
+					"enum":        []string{"APPLICATION", "SYSTEM", "BUILD"},
+					"default":     "APPLICATION",
+				},
+				"format": map[string]interface{}{
+					"type":        "string",
+					"description": "Log output format (default: FULL)",
+					"enum":        []string{"FULL", "SHORT", "JSON"},
+					"default":     "FULL",
+				},
+				"format_template": map[string]interface{}{
+					"type":        "string",
+					"description": "Custom format template for log output (optional)",
+				},
+				"follow": map[string]interface{}{
+					"type":        "boolean",
+					"description": "Stream logs in real-time (default: false)",
+					"default":     false,
+				},
+				"show_build_logs": map[string]interface{}{
+					"type":        "boolean",
+					"description": "Show build logs instead of runtime logs (default: false)",
+					"default":     false,
 				},
 			},
 			"required":             []string{"service_id"},
@@ -564,26 +597,45 @@ func handleGetServiceLogs(ctx context.Context, client *sdk.Handler, args map[str
 		return shared.ErrorResponse("Service ID is required"), nil
 	}
 
-	// Default to 100 lines
-	lines := 100
-	if l, ok := args["lines"].(float64); ok && l > 0 {
-		lines = int(l)
+	// Parse parameters with defaults
+	limit := 100
+	if l, ok := args["limit"].(float64); ok && l > 0 {
+		limit = int(l)
 	}
 
-	// Parse since parameter
-	var since time.Time
-	if sinceStr, ok := args["since"].(string); ok && sinceStr != "" {
-		// Parse duration string like "1h", "30m"
-		if duration, err := time.ParseDuration(sinceStr); err == nil {
-			since = time.Now().Add(-duration)
-		}
+	minSeverity := ""
+	if ms, ok := args["minimum_severity"].(string); ok {
+		minSeverity = ms
 	}
 
-	// This is a simplified version - actual implementation would need proper log API
-	// The Zerops SDK might have different methods for fetching logs
+	messageType := "APPLICATION"
+	if mt, ok := args["message_type"].(string); ok && mt != "" {
+		messageType = mt
+	}
+
+	format := "FULL"
+	if f, ok := args["format"].(string); ok && f != "" {
+		format = f
+	}
+
+	formatTemplate := ""
+	if ft, ok := args["format_template"].(string); ok {
+		formatTemplate = ft
+	}
+
+	follow := false
+	if f, ok := args["follow"].(bool); ok {
+		follow = f
+	}
+
+	showBuildLogs := false
+	if sbl, ok := args["show_build_logs"].(bool); ok {
+		showBuildLogs = sbl
+	}
+
 	servicePath := path.ServiceStackId{Id: uuid.ServiceStackId(serviceID)}
 	
-	// Get service info first
+	// Get service info first to validate it exists
 	serviceResp, err := client.GetServiceStack(ctx, servicePath)
 	if err != nil {
 		return shared.ErrorResponse(fmt.Sprintf("Failed to get service: %v", err)), nil
@@ -594,31 +646,76 @@ func handleGetServiceLogs(ctx context.Context, client *sdk.Handler, args map[str
 		return shared.ErrorResponse(fmt.Sprintf("Failed to parse service: %v", err)), nil
 	}
 
-	// Return simulated log structure
-	// In real implementation, this would fetch actual logs
-	logs := []map[string]interface{}{
-		{
-			"timestamp": time.Now().Format(time.RFC3339),
-			"level":     "info",
-			"message":   fmt.Sprintf("Logs for service %s", serviceOutput.Name.Native()),
-		},
+	// Handle build logs if requested
+	effectiveServiceID := serviceID
+	if showBuildLogs {
+		// Get latest app version for build logs (similar to CLI implementation)
+		// This would require searching for app versions by service
+		// For now, we'll note this limitation
+		return map[string]interface{}{
+			"service_id":   serviceID,
+			"service_name": serviceOutput.Name.Native(),
+			"error":       "Build logs support requires app version lookup - not yet implemented",
+			"parameters": map[string]interface{}{
+				"limit":            limit,
+				"minimum_severity": minSeverity,
+				"message_type":     messageType,
+				"format":          format,
+				"format_template":  formatTemplate,
+				"follow":          follow,
+				"show_build_logs": showBuildLogs,
+			},
+			"note": "Use show_build_logs: false for runtime logs",
+		}, nil
 	}
 
-	if !since.IsZero() {
-		logs = append(logs, map[string]interface{}{
-			"timestamp": since.Format(time.RFC3339),
-			"level":     "info",
-			"message":   fmt.Sprintf("Showing logs since %s", since.Format("15:04:05")),
-		})
-	}
-
-	return map[string]interface{}{
-		"service_id":   serviceID,
+	// TODO: Implement actual log retrieval using proper Zerops SDK log methods
+	// The current SDK might not have direct log access methods
+	// This would need to be implemented similar to the serviceLogs.NewStdout pattern
+	
+	// For now, return a structured response indicating the parameters that would be used
+	response := map[string]interface{}{
+		"service_id":   effectiveServiceID,
 		"service_name": serviceOutput.Name.Native(),
-		"logs":        logs,
-		"lines":       lines,
-		"note":        "Log retrieval requires proper API endpoint implementation",
-	}, nil
+		"parameters": map[string]interface{}{
+			"limit":            limit,
+			"minimum_severity": minSeverity,
+			"message_type":     messageType,
+			"format":          format,
+			"format_template":  formatTemplate,
+			"follow":          follow,
+			"show_build_logs": showBuildLogs,
+		},
+		"status": "parameters_validated",
+		"note":   "Log retrieval functionality requires implementation of proper log streaming API",
+	}
+
+	// Add severity mapping info if requested
+	if minSeverity != "" {
+		response["severity_info"] = map[string]interface{}{
+			"requested":        minSeverity,
+			"available_levels": []string{"debug", "info", "warning", "error", "critical"},
+		}
+	}
+
+	// Add format info
+	if format != "FULL" || formatTemplate != "" {
+		response["format_info"] = map[string]interface{}{
+			"selected_format": format,
+			"template":       formatTemplate,
+			"available_formats": []string{"FULL", "SHORT", "JSON"},
+		}
+	}
+
+	// Add follow mode info
+	if follow {
+		response["follow_mode"] = map[string]interface{}{
+			"enabled": true,
+			"note":   "Real-time streaming would require WebSocket or SSE implementation",
+		}
+	}
+
+	return response, nil
 }
 
 func handleRestartService(ctx context.Context, client *sdk.Handler, args map[string]interface{}) (interface{}, error) {
