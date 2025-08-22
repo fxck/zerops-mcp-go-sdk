@@ -123,19 +123,17 @@ func handleGetRunningProcesses(ctx context.Context, client *sdk.Handler, args ma
 				break
 			}
 			processInfo := map[string]interface{}{
-				"id":           string(process.Id),
-				"status":       string(process.Status),
-				"created":      process.Created.Format("2006-01-02 15:04:05"),
-				"service_name": serviceOutput.Name.Native(),
-				"service_id":   serviceID,
+				"id":      string(process.Id),
+				"status":  string(process.Status),
+				"created": process.Created.Format("15:04:05"),
 			}
 			processes = append(processes, processInfo)
 		}
 
 		return map[string]interface{}{
+			"service":   serviceOutput.Name.Native(),
 			"processes": processes,
 			"count":     len(processes),
-			"service":   serviceOutput.Name.Native(),
 		}, nil
 	}
 
