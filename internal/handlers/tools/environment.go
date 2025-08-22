@@ -45,7 +45,7 @@ NAMING CONVENTIONS:
 				"project_id": map[string]interface{}{
 					"type":        "string",
 					"description": "OPTIONAL: Project ID. If not provided, will check $projectId environment variable.",
-					"pattern":     "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+					"pattern":     "^[A-Za-z0-9_-]+$",
 				},
 				"key": map[string]interface{}{
 					"type":        "string",
@@ -97,7 +97,7 @@ WHEN TO USE:
 				"service_id": map[string]interface{}{
 					"type":        "string",
 					"description": "REQUIRED: Service ID from discovery tool",
-					"pattern":     "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+					"pattern":     "^[A-Za-z0-9_-]+$",
 				},
 				"key": map[string]interface{}{
 					"type":        "string",

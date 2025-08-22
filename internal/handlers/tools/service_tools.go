@@ -54,43 +54,30 @@ Use knowledge_base tool for detailed configuration examples.`,
 		Name:        "import_services",
 		Description: `Imports services into a Zerops project using YAML configuration.
 
-CRITICAL REQUIREMENTS:
-1. project_id: Must be valid UUID (get from discovery tool)
-2. yaml: Must be valid YAML with correct service type names
-
-BEFORE USING THIS TOOL:
-1. Run get_service_types to verify service type names
-2. Use knowledge_base for runtime-specific examples
-3. Validate hostnames are alphanumeric (no special characters)
+CRITICAL WORKFLOW:
+1. Import databases FIRST (postgresql, redis, objectstorage)
+2. Then import runtime services with startWithoutCode: true for dev
+3. MANDATORY: Deploy hello-world pattern before real development
+4. Monitor all imports with get_process_status
 
 YAML STRUCTURE:
 services:
-  - hostname: servicename    # alphanumeric only, no hyphens/underscores
-    type: runtime@version    # exact format from get_service_types
-    mode: NON_HA            # or HA for high availability
-    enableSubdomainAccess: true  # for web services
-    minContainers: 1
+  - hostname: servicename    # alphanumeric only
+    type: runtime@version    # from get_service_types
+    startWithoutCode: true   # REQUIRED for dev services
 
-COMMON ERRORS:
-- "serviceStackTypeNotFound": Wrong service type name, check get_service_types
-- Invalid hostname: Use alphanumeric characters only
-- YAML syntax errors: Validate YAML structure
-
-EXAMPLES:
-- Node.js app: type: nodejs@22
-- PostgreSQL DB: type: postgresql@16, mode: NON_HA
-- PHP app: type: php@8.3 (NOT php-apache)`,
+Use knowledge_base or load_platform_guide for complete workflow patterns and examples.`,
 		InputSchema: map[string]interface{}{
 			"type": "object",
 			"properties": map[string]interface{}{
 				"project_id": map[string]interface{}{
 					"type":        "string",
 					"description": "OPTIONAL: Zerops project ID where services will be created. If not provided, will check $projectId environment variable.",
-					"pattern":     "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+					"pattern":     "^[A-Za-z0-9_-]+$",
 				},
 				"yaml": map[string]interface{}{
 					"type":        "string",
-					"description": "REQUIRED: YAML configuration for services. Must include 'services' array with hostname, type, and optional configuration.",
+					"description": "REQUIRED: YAML configuration for services. Must include 'services' array with hostname, type, and optional configuration. Use knowledge_base or load_platform_guide for examples.",
 					"minLength":   10,
 				},
 			},
@@ -127,7 +114,7 @@ NOTE: Only works for web services. Databases and internal services don't need su
 				"service_id": map[string]interface{}{
 					"type":        "string",
 					"description": "REQUIRED: Service ID from discovery tool. Must be a web service (not database).",
-					"pattern":     "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+					"pattern":     "^[A-Za-z0-9_-]+$",
 				},
 			},
 			"required":             []string{"service_id"},
@@ -166,7 +153,7 @@ WHEN TO USE:
 				"service_id": map[string]interface{}{
 					"type":        "string",
 					"description": "REQUIRED: Service ID from discovery tool",
-					"pattern":     "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+					"pattern":     "^[A-Za-z0-9_-]+$",
 				},
 				"min_cpu": map[string]interface{}{
 					"type":        "number",
@@ -245,7 +232,7 @@ NOTE: Large log requests may take time. Start with smaller line counts.`,
 				"service_id": map[string]interface{}{
 					"type":        "string",
 					"description": "REQUIRED: Service ID from discovery tool",
-					"pattern":     "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+					"pattern":     "^[A-Za-z0-9_-]+$",
 				},
 				"lines": map[string]interface{}{
 					"type":        "integer",
@@ -269,23 +256,22 @@ NOTE: Large log requests may take time. Start with smaller line counts.`,
 	// Restart service
 	shared.GlobalRegistry.Register(&shared.ToolDefinition{
 		Name:        "restart_service",
-		Description: `Restarts a service (useful after environment variable changes or configuration updates).
+		Description: `Restarts a service (async operation returning process_id).
 
-WHEN TO USE:
-- After setting environment variables
-- After configuration changes
-- When service is not responding properly
-- To apply new settings that require restart
+CRITICAL REQUIREMENTS:
+- MANDATORY after setting environment variables
+- Must restart dependent services that read changed variables  
+- Monitor completion with get_process_status
+- Environment variables NOT available until restart completes
 
-NOTE: This is an async operation that returns a process_id.
-Use 'get_process_status' to monitor the restart progress.`,
+Use knowledge_base or load_platform_guide for complete restart workflow and dependency patterns.`,
 		InputSchema: map[string]interface{}{
 			"type": "object",
 			"properties": map[string]interface{}{
 				"service_id": map[string]interface{}{
 					"type":        "string",
 					"description": "REQUIRED: Service ID from discovery tool",
-					"pattern":     "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+					"pattern":     "^[A-Za-z0-9_-]+$",
 				},
 			},
 			"required":             []string{"service_id"},
@@ -344,7 +330,7 @@ PROCESS STATES:
 				"process_id": map[string]interface{}{
 					"type":        "string",
 					"description": "REQUIRED: Process ID returned from async operations",
-					"pattern":     "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+					"pattern":     "^[A-Za-z0-9_-]+$",
 				},
 			},
 			"required":             []string{"process_id"},
@@ -434,7 +420,7 @@ func handleImportServices(ctx context.Context, client *sdk.Handler, args map[str
 		Yaml:      types.NewText(yamlContent),
 	}
 
-	_, err := client.PostServiceStackImport(ctx, importBody)
+	resp, err := client.PostServiceStackImport(ctx, importBody)
 	if err != nil {
 		errMsg := err.Error()
 		if strings.Contains(errMsg, "serviceStackTypeNotFound") {
@@ -443,11 +429,40 @@ func handleImportServices(ctx context.Context, client *sdk.Handler, args map[str
 		return shared.ErrorResponse(fmt.Sprintf("Import failed: %v", err)), nil
 	}
 
-	// Import returns a process response
-	// We'll return a simplified response
+	// Capture response metadata
+	statusCode := resp.StatusCode()
+	headers := resp.Headers()
+	
+	// Try to get raw response for better error details
+	outputInterface, outputErr := resp.OutputInterface()
+	
+	output, err := resp.Output()
+	if err != nil {
+		// Even on error, return metadata including raw response
+		errorResponse := map[string]interface{}{
+			"status":      "import_failed",
+			"status_code": statusCode,
+			"headers":     headers,
+			"error":       err.Error(),
+			"message":     fmt.Sprintf("Import failed with status %d: %v", statusCode, err),
+		}
+		
+		// Include raw response if available
+		if outputErr == nil && outputInterface != nil {
+			errorResponse["raw_response"] = outputInterface
+		}
+		
+		return errorResponse, nil
+	}
+
 	return map[string]interface{}{
-		"status":  "import_initiated",
-		"message": "Services are being created. Check status with 'discovery' tool.",
+		"status":         "import_completed",
+		"status_code":    statusCode,
+		"headers":        headers,
+		"project_id":     string(output.ProjectId),
+		"project_name":   output.ProjectName.Native(),
+		"service_stacks": output.ServiceStacks,
+		"message":        "Services imported successfully. Use 'discovery' tool to see details.",
 	}, nil
 }
 

@@ -46,7 +46,7 @@ WHEN TO USE:
 				"service_id": map[string]interface{}{
 					"type":        "string",
 					"description": "OPTIONAL: Service ID to filter processes. If omitted, returns all processes.",
-					"pattern":     "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+					"pattern":     "^[A-Za-z0-9_-]+$",
 				},
 				"limit": map[string]interface{}{
 					"type":        "integer",
