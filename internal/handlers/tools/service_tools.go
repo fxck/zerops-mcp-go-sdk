@@ -2,7 +2,10 @@ package tools
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"io"
+	"net/http"
 	"os"
 	"strings"
 	"time"
@@ -10,11 +13,50 @@ import (
 	"github.com/zerops-mcp-basic/internal/handlers/shared"
 	"github.com/zeropsio/zerops-go/dto/input/body"
 	"github.com/zeropsio/zerops-go/dto/input/path"
+	"github.com/zeropsio/zerops-go/dto/input/query"
 	"github.com/zeropsio/zerops-go/sdk"
 	"github.com/zeropsio/zerops-go/types"
 	"github.com/zeropsio/zerops-go/types/uuid"
 	"gopkg.in/yaml.v3"
 )
+
+// Log data structures from zcli implementation
+type LogResponse struct {
+	Items []LogData `json:"items"`
+}
+
+type LogData struct {
+	Timestamp      string `json:"timestamp"`
+	Version        int    `json:"version"`
+	Hostname       string `json:"hostname"`
+	Content        string `json:"content"`
+	Client         string `json:"client"`
+	Facility       int    `json:"facility"`
+	FacilityLabel  string `json:"facilityLabel"`
+	Id             string `json:"id"`
+	MsgId          string `json:"msgId"`
+	Priority       int    `json:"priority"`
+	ProcId         string `json:"procId"`
+	Severity       int    `json:"severity"`
+	SeverityLabel  string `json:"severityLabel"`
+	StructuredData string `json:"structuredData"`
+	Tag            string `json:"tag"`
+	TlsPeer        string `json:"tlsPeer"`
+	AppName        string `json:"appName"`
+	Message        string `json:"message"`
+}
+
+// Severity levels mapping (from zcli)
+var severityLevels = map[string]int{
+	"emergency":     0,
+	"alert":         1,
+	"critical":      2,
+	"error":         3,
+	"warning":       4,
+	"notice":        5,
+	"informational": 6,
+	"debug":         7,
+}
 
 // RegisterServiceTools registers all service-related tools
 func RegisterServiceTools() {
@@ -635,7 +677,7 @@ func handleGetServiceLogs(ctx context.Context, client *sdk.Handler, args map[str
 
 	servicePath := path.ServiceStackId{Id: uuid.ServiceStackId(serviceID)}
 	
-	// Get service info first to validate it exists
+	// Get service info first to validate it exists and get project ID
 	serviceResp, err := client.GetServiceStack(ctx, servicePath)
 	if err != nil {
 		return shared.ErrorResponse(fmt.Sprintf("Failed to get service: %v", err)), nil
@@ -646,37 +688,84 @@ func handleGetServiceLogs(ctx context.Context, client *sdk.Handler, args map[str
 		return shared.ErrorResponse(fmt.Sprintf("Failed to parse service: %v", err)), nil
 	}
 
+	projectID := serviceOutput.ProjectId
+
 	// Handle build logs if requested
-	effectiveServiceID := serviceID
 	if showBuildLogs {
-		// Get latest app version for build logs (similar to CLI implementation)
-		// This would require searching for app versions by service
-		// For now, we'll note this limitation
 		return map[string]interface{}{
 			"service_id":   serviceID,
 			"service_name": serviceOutput.Name.Native(),
 			"error":       "Build logs support requires app version lookup - not yet implemented",
-			"parameters": map[string]interface{}{
-				"limit":            limit,
-				"minimum_severity": minSeverity,
-				"message_type":     messageType,
-				"format":          format,
-				"format_template":  formatTemplate,
-				"follow":          follow,
-				"show_build_logs": showBuildLogs,
-			},
 			"note": "Use show_build_logs: false for runtime logs",
 		}, nil
 	}
 
-	// TODO: Implement actual log retrieval using proper Zerops SDK log methods
-	// The current SDK might not have direct log access methods
-	// This would need to be implemented similar to the serviceLogs.NewStdout pattern
+	// Get log URL from project log endpoint (following zcli pattern)
+	projectPath := path.ProjectId{Id: projectID}
+	logResp, err := client.GetProjectLog(ctx, projectPath, query.GetProjectLog{})
+	if err != nil {
+		return shared.ErrorResponse(fmt.Sprintf("Failed to get project log access: %v", err)), nil
+	}
+
+	logOutput, err := logResp.Output()
+	if err != nil {
+		return shared.ErrorResponse(fmt.Sprintf("Failed to parse log access: %v", err)), nil
+	}
+
+	// Parse method and URL from response (format: "METHOD URL")
+	urlData := strings.Split(string(logOutput.Url), " ")
+	if len(urlData) != 2 {
+		return shared.ErrorResponse("Invalid log URL format received"), nil
+	}
+	method, baseURL := urlData[0], urlData[1]
+
+	// Build query parameters (following zcli pattern)
+	queryParams := fmt.Sprintf("&limit=%d&desc=1&facility=%d&serviceStackId=%s", 
+		limit, getFacilityCode(messageType), serviceID)
+
+	// Add severity filter if specified
+	if minSeverity != "" {
+		if severityCode, ok := severityLevels[strings.ToLower(minSeverity)]; ok {
+			queryParams += fmt.Sprintf("&minimumSeverity=%d", severityCode)
+		}
+	}
+
+	// Make HTTP request to get logs
+	fullURL := "https://" + baseURL + queryParams
+	httpClient := &http.Client{Timeout: time.Minute}
 	
-	// For now, return a structured response indicating the parameters that would be used
-	response := map[string]interface{}{
-		"service_id":   effectiveServiceID,
-		"service_name": serviceOutput.Name.Native(),
+	req, err := http.NewRequestWithContext(ctx, method, fullURL, nil)
+	if err != nil {
+		return shared.ErrorResponse(fmt.Sprintf("Failed to create request: %v", err)), nil
+	}
+	req.Header.Add("Content-Type", "application/json")
+
+	resp, err := httpClient.Do(req)
+	if err != nil {
+		return shared.ErrorResponse(fmt.Sprintf("Failed to fetch logs: %v", err)), nil
+	}
+	defer resp.Body.Close()
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return shared.ErrorResponse(fmt.Sprintf("Failed to read response: %v", err)), nil
+	}
+
+	// Parse JSON response
+	var logResponse LogResponse
+	if err := json.Unmarshal(body, &logResponse); err != nil {
+		return shared.ErrorResponse(fmt.Sprintf("Failed to parse log response: %v", err)), nil
+	}
+
+	// Format logs based on requested format
+	formattedLogs := formatLogs(logResponse.Items, format, formatTemplate)
+
+	return map[string]interface{}{
+		"service_id":    serviceID,
+		"service_name":  serviceOutput.Name.Native(),
+		"project_id":    string(projectID),
+		"logs":          formattedLogs,
+		"total_entries": len(logResponse.Items),
 		"parameters": map[string]interface{}{
 			"limit":            limit,
 			"minimum_severity": minSeverity,
@@ -686,36 +775,59 @@ func handleGetServiceLogs(ctx context.Context, client *sdk.Handler, args map[str
 			"follow":          follow,
 			"show_build_logs": showBuildLogs,
 		},
-		"status": "parameters_validated",
-		"note":   "Log retrieval functionality requires implementation of proper log streaming API",
-	}
+		"status": "success",
+	}, nil
+}
 
-	// Add severity mapping info if requested
-	if minSeverity != "" {
-		response["severity_info"] = map[string]interface{}{
-			"requested":        minSeverity,
-			"available_levels": []string{"debug", "info", "warning", "error", "critical"},
+// getFacilityCode returns facility code based on message type (from zcli)
+func getFacilityCode(messageType string) int {
+	switch strings.ToUpper(messageType) {
+	case "APPLICATION":
+		return 16
+	case "WEBSERVER":
+		return 17
+	default:
+		return 16
+	}
+}
+
+// formatLogs formats log entries based on the requested format
+func formatLogs(logs []LogData, format, formatTemplate string) interface{} {
+	switch strings.ToUpper(format) {
+	case "JSON":
+		return logs
+	case "SHORT":
+		var shortLogs []map[string]interface{}
+		for _, log := range logs {
+			shortLogs = append(shortLogs, map[string]interface{}{
+				"timestamp": log.Timestamp,
+				"severity":  log.SeverityLabel,
+				"message":   log.Message,
+			})
 		}
-	}
-
-	// Add format info
-	if format != "FULL" || formatTemplate != "" {
-		response["format_info"] = map[string]interface{}{
-			"selected_format": format,
-			"template":       formatTemplate,
-			"available_formats": []string{"FULL", "SHORT", "JSON"},
+		return shortLogs
+	case "FULL":
+		fallthrough
+	default:
+		var fullLogs []map[string]interface{}
+		for _, log := range logs {
+			entry := map[string]interface{}{
+				"timestamp":       log.Timestamp,
+				"severity":        log.SeverityLabel,
+				"facility":        log.FacilityLabel,
+				"hostname":        log.Hostname,
+				"app_name":        log.AppName,
+				"message":         log.Message,
+				"content":         log.Content,
+				"priority":        log.Priority,
+				"proc_id":         log.ProcId,
+				"tag":            log.Tag,
+				"structured_data": log.StructuredData,
+			}
+			fullLogs = append(fullLogs, entry)
 		}
+		return fullLogs
 	}
-
-	// Add follow mode info
-	if follow {
-		response["follow_mode"] = map[string]interface{}{
-			"enabled": true,
-			"note":   "Real-time streaming would require WebSocket or SSE implementation",
-		}
-	}
-
-	return response, nil
 }
 
 func handleRestartService(ctx context.Context, client *sdk.Handler, args map[string]interface{}) (interface{}, error) {
