@@ -287,12 +287,16 @@ Use knowledge_base or load_platform_guide for complete restart workflow and depe
 
 WHEN TO USE:
 - When file system access is broken
-- After network connectivity issues
+- After network connectivity issues  
 - When getting file permission errors
 - To refresh SSHFS connections
 
-NOTE: This reconnects the service's file system mounts.
-Use for services that have lost connection to their storage.`,
+RETURNS:
+- mkdir command to create mount directory (required first)
+- sshfs command to reconnect the mount
+- Step-by-step instructions
+
+NOTE: Always run mkdir first, then sshfs command.`,
 		InputSchema: map[string]interface{}{
 			"type": "object",
 			"properties": map[string]interface{}{
@@ -668,14 +672,21 @@ func handleRemountService(ctx context.Context, client *sdk.Handler, args map[str
 	// Note: This is a placeholder implementation
 	// The actual remount would need proper SDK methods or system commands
 	
+	mkdirCommand := fmt.Sprintf(`mkdir -p "/var/www/%s"`, serviceName)
 	sshfsCommand := fmt.Sprintf(`sshfs -o StrictHostKeyChecking=no,reconnect,ServerAliveInterval=15,ServerAliveCountMax=3,auto_cache,kernel_cache "%s:/var/www" "/var/www/%s"`, serviceName, serviceName)
 	
 	return map[string]interface{}{
 		"status":       "success",
 		"service_name": serviceName,
-		"command":      sshfsCommand,
-		"message":      fmt.Sprintf("Run this command to remount SSHFS for service '%s':", serviceName),
-		"instructions": "Copy and run the command above in your terminal to reconnect the SSHFS mount.",
+		"commands": map[string]interface{}{
+			"mkdir": mkdirCommand,
+			"sshfs": sshfsCommand,
+		},
+		"message":      fmt.Sprintf("Run these commands to remount SSHFS for service '%s':", serviceName),
+		"instructions": []string{
+			"1. Create mount directory: " + mkdirCommand,
+			"2. Mount SSHFS: " + sshfsCommand,
+		},
 	}, nil
 }
 
