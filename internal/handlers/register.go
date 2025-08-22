@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/modelcontextprotocol/go-sdk/jsonschema"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"github.com/zerops-mcp-basic/internal/handlers/shared"
 	"github.com/zerops-mcp-basic/internal/handlers/tools"
@@ -37,10 +38,50 @@ func RegisterForMCPWithClientInfo(server *mcp.Server, client *sdk.Handler, clien
 		// Create a closure to capture the tool definition
 		td := toolDef
 
+		// Convert our schema to jsonschema.Schema
+		var inputSchema *jsonschema.Schema
+		if td.InputSchema != nil {
+			// Create jsonschema.Schema from our map[string]interface{}
+			schema := &jsonschema.Schema{}
+			if schemaType, ok := td.InputSchema["type"].(string); ok {
+				schema.Type = schemaType
+			}
+			if props, ok := td.InputSchema["properties"].(map[string]interface{}); ok {
+				schema.Properties = make(map[string]*jsonschema.Schema)
+				for propName, propDef := range props {
+					if propMap, ok := propDef.(map[string]interface{}); ok {
+						propSchema := &jsonschema.Schema{}
+						if propType, ok := propMap["type"].(string); ok {
+							propSchema.Type = propType
+						}
+						if desc, ok := propMap["description"].(string); ok {
+							propSchema.Description = desc
+						}
+						if pattern, ok := propMap["pattern"].(string); ok {
+							propSchema.Pattern = pattern
+						}
+						schema.Properties[propName] = propSchema
+					}
+				}
+			}
+			if required, ok := td.InputSchema["required"].([]string); ok {
+				schema.Required = required
+			}
+			if additionalProps, ok := td.InputSchema["additionalProperties"]; ok {
+				if boolVal, ok := additionalProps.(bool); ok && boolVal {
+					// true means allow any additional properties
+					schema.AdditionalProperties = &jsonschema.Schema{}
+				}
+				// false means don't set it (default behavior)
+			}
+			inputSchema = schema
+		}
+
 		// Create MCP tool
 		mcpTool := &mcp.Tool{
 			Name:        td.Name,
 			Description: td.Description,
+			InputSchema: inputSchema,
 		}
 
 		// Create handler that bridges to shared handler

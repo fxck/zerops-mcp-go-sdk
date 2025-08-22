@@ -248,6 +248,11 @@ func (h *HTTPHandler) getRegisteredTools() []map[string]interface{} {
 	result := make([]map[string]interface{}, 0, len(tools))
 
 	for _, tool := range tools {
+		// Debug: Log the actual InputSchema for discovery
+		if tool.Name == "discovery" {
+			fmt.Printf("DEBUG: Discovery InputSchema: %+v\n", tool.InputSchema)
+		}
+		
 		result = append(result, map[string]interface{}{
 			"name":        tool.Name,
 			"description": tool.Description,

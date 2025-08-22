@@ -32,8 +32,7 @@ Always use this tool first to understand the project structure before performing
 			"properties": map[string]interface{}{
 				"project_id": map[string]interface{}{
 					"type":        "string",
-					"description": "Zerops project ID (UUID format). Get it by running 'echo $projectId' in the container.",
-					"pattern":     "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+					"description": "Zerops project ID. Get it by running 'echo $projectId' in the container.",
 				},
 			},
 			"required":             []string{"project_id"},
@@ -48,10 +47,19 @@ func handleDiscovery(ctx context.Context, client *sdk.Handler, args map[string]i
 		return shared.ErrorResponse("No API key provided"), nil
 	}
 
+	// Debug: Log all received parameters
+	fmt.Printf("DEBUG: Discovery received args: %+v\n", args)
+
 	// Get project ID parameter
 	projectID, ok := args["project_id"].(string)
 	if !ok || projectID == "" {
-		return shared.ErrorResponse("Project ID is required. Run 'echo $projectId' in the container to get it."), nil
+		// Check if it was passed as "projectId" instead
+		if altProjectID, altOk := args["projectId"].(string); altOk && altProjectID != "" {
+			projectID = altProjectID
+			fmt.Printf("DEBUG: Found projectId parameter (camelCase): %s\n", projectID)
+		} else {
+			return shared.ErrorResponse("Project ID is required. Run 'echo $projectId' in the container to get it."), nil
+		}
 	}
 
 	// Get project details first (we need clientId for searches)
