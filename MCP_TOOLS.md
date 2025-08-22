@@ -8,61 +8,50 @@ The Zerops MCP SDK provides 14 tools for managing Zerops projects, services, and
 
 ## Quick Reference
 
-| Tool | Purpose | Required Parameters |
-|------|---------|-------------------|
-| `discovery` | Get project overview | None (uses $projectId) |
-| `get_service_types` | List available service types | None |
-| `import_services` | Create services from YAML | `yaml` |
-| `enable_preview_subdomain` | Enable public access | `service_id` |
-| `scale_service` | Configure service scaling | `service_id` |
-| `get_service_logs` | Retrieve service logs | `service_id` |
-| `set_project_env` | Set project environment variables | `key`, `value` |
-| `set_service_env` | Set service environment variables | `service_id`, `key`, `value` |
-| `get_running_processes` | Monitor running processes | None |
-| `restart_service` | Restart service (async) | `service_id` |
-| `remount_service` | Fix SSHFS mounts | `service_name` |
-| `get_process_status` | Check async operation status | `process_id` |
-| `load_platform_guide` | Get workflow guides | `path_type` |
-| `knowledge_base` | Get runtime examples | `runtime` |
+| Tool | Current Description | Required Parameters |
+|------|-------------------|-------------------|
+| `discovery` | ESSENTIAL FIRST STEP: Discovers all services in a project with their IDs, hostnames, service types, and environment variable availability. CRITICAL: Requires a project ID. To get the project ID, the agent can run 'echo $projectId' in the container environment. Returns condensed data about all services with their unique IDs, service hostnames and types, available environment variables at project and service level, and current project configuration. Always use this tool first to understand the project structure before performing other operations. | `project_id` |
+| `get_service_types` | Provides a comprehensive list of all available Zerops service types and their versions. Returns all service types available in Zerops platform with their specific versions (e.g., nodejs@22, python@3.12, postgresql@16, etc.). Use this before import_services to ensure you're using valid service type names. Essential for understanding what services you can create in your project. | None |
+| `import_services` | Creates services in a Zerops project using YAML configuration. This tool initiates the service creation process and returns immediately with a process status. The actual service creation is asynchronous, so use the 'discovery' tool to check when services are fully created. Supports all Zerops service types and configurations. | `project_id`, `yaml` |
+| `enable_preview_subdomain` | Enables public subdomain access for a specific service (HTTP routing). This is an asynchronous operation that sets up public web access for your service. Use with web services (nodejs, python, php, go, etc.) to make them accessible from the internet. Returns a process ID to monitor the operation status. | `service_id` |
+| `scale_service` | Configures service scaling parameters including CPU, RAM, and container counts. Allows you to set minimum and maximum resource limits for auto-scaling or fixed resource allocation. Essential for production workload management and cost optimization. | `service_id` |
+| `get_service_logs` | Retrieves logs from a specific service with optional filtering by time period and line count. Useful for debugging applications, monitoring service health, and troubleshooting deployment issues. Supports time-based filtering (1h, 24h, 7d) and line limiting. | `service_id` |
+| `set_project_env` | Sets project-level environment variables that are available to all services within the project. Use this for shared configuration like database URLs, API keys, or other global settings that multiple services need access to. Changes trigger service restarts automatically. | `project_id`, `key`, `value` |
+| `set_service_env` | Sets service-specific environment variables for individual services. These variables are only available to the specific service and override project-level variables with the same name. Good for service-specific configuration like ports or service-unique settings. | `service_id`, `key`, `value` |
+| `get_running_processes` | Monitors running processes across the project or for a specific service. Shows process status, creation time, and service association. Essential for monitoring deployment progress, checking async operations status, and debugging service issues. Can be filtered by service for focused monitoring. | None |
+| `restart_service` | Initiates a service restart operation (asynchronous). Useful after environment variable changes, configuration updates, or when a service becomes unresponsive. Returns a process ID to monitor the restart progress using get_process_status or get_running_processes. | `service_id` |
+| `remount_service` | Fixes SSHFS mount connection issues by providing the correct remount command. When file system access is broken or after network connectivity issues, this tool generates the proper SSHFS command to reconnect the file system. Copy and execute the returned command in your terminal. | `service_name` |
+| `get_process_status` | Retrieves the status of a specific process by its ID. Essential for monitoring asynchronous operations like service restarts, subdomain enablement, or service imports. Helps track the progress and completion of background processes. | `process_id` |
+| `load_platform_guide` | Loads path-specific workflow guides for different project scenarios (fetched from GitHub with 10min cache). Provides step-by-step workflows for: fresh_project (starting new projects), existing_service (working with existing services), add_services (adding services to existing projects). | `path_type` |
+| `knowledge_base` | Provides comprehensive YAML examples and deployment patterns for specific runtimes. Returns runtime-specific zerops.yml examples, service configuration patterns, and deployment best practices. For unsupported runtimes, returns Node.js pattern as reference with guidance to adapt. | `runtime` |
 
 ## Detailed Tool Documentation
 
 ### 1. discovery
 
-**Purpose:** Essential first step - discovers all services in a project with their IDs, hostnames, types, and status.
+**Purpose:** ESSENTIAL FIRST STEP: Discovers all services in a project with their IDs, hostnames, service types, and environment variable availability. CRITICAL: Requires a project ID. To get the project ID, the agent can run 'echo $projectId' in the container environment.
 
 **Parameters:**
-- `project_id` (optional): Project UUID. If not provided, uses `$projectId` environment variable.
+- `project_id` (required): Project UUID. Get it by running 'echo $projectId' in the container.
 
-**Returns:**
+**Returns (Condensed):**
 ```json
 {
+  "project": {
+    "id": "project-uuid",
+    "name": "my-project",
+    "env_keys": ["DATABASE_URL", "API_KEY"]
+  },
   "services": [
     {
       "id": "service-uuid",
       "hostname": "app",
       "type": "nodejs@22",
-      "environment_variables": {
-        "service_env_keys": ["PORT", "NODE_ENV"]
-      },
-      "running_processes": [
-        {
-          "id": "process-uuid",
-          "status": "running", 
-          "created": "2024-01-01 12:00:00"
-        }
-      ],
-      "public_access": []
+      "env_keys": ["PORT", "NODE_ENV"],
+      "process_count": 2
     }
   ],
-  "count": 1,
-  "project": {
-    "id": "project-uuid",
-    "name": "my-project",
-    "environment_variables": {
-      "project_env_keys": ["DATABASE_URL", "API_KEY"]
-    }
-  }
+  "count": 1
 }
 ```
 
@@ -306,21 +295,18 @@ services:
 - `service_id` (optional): Service UUID to filter processes
 - `limit` (optional): Maximum processes to return (1-100, default: 20)
 
-**Returns:**
+**Returns (Condensed):**
 ```json
 {
+  "service": "app",
   "processes": [
     {
       "id": "process-uuid",
       "status": "running",
-      "created": "2024-01-01 12:00:00",
-      "service_name": "app",
-      "service_id": "service-uuid"
+      "created": "12:00:05"
     }
   ],
-  "count": 1,
-  "limit": 20,
-  "note": "Results limited to 20 processes. Use 'limit' parameter to see more or filter by service_id."
+  "count": 1
 }
 ```
 
@@ -463,17 +449,15 @@ services:
 
 ### 14. knowledge_base
 
-**Purpose:** Provides runtime-specific YAML examples and deployment patterns.
+**Purpose:** Provides comprehensive YAML examples and deployment patterns for specific runtimes. For unsupported runtimes, returns Node.js pattern as reference with guidance to adapt.
 
 **Parameters:**
 - `runtime` (required): Runtime type to get examples for
 
 **Supported Runtimes:**
-- Web: `nodejs`, `python`, `go`, `php`, `rust`
+- Web: `nodejs`, `python`, `go`, `php`
 - Databases: `postgresql`, `mariadb`, `mongodb`
-- Cache: `redis`, `valkey`, `keydb`
-- Storage: `elasticsearch`, `objectstorage`
-- Web servers: `nginx`, `static`
+- Cache: `redis`, `valkey`
 
 **Returns (for nodejs):**
 ```json
@@ -495,10 +479,19 @@ services:
 }
 ```
 
+**Returns (for unsupported runtime like "rust"):**
+```json
+{
+  "runtime": "rust",
+  "message": "Runtime 'rust' not directly supported. Use Node.js pattern as reference.",
+  "pattern": { ... nodejs examples ... }
+}
+```
+
 **Usage:**
 ```
-- Get complete zerops.yml examples for Node.js
-- Other runtimes get basic patterns + guidance to adapt Node.js example
+- Get complete zerops.yml examples for supported runtimes
+- Unsupported runtimes get Node.js pattern with guidance to adapt
 - Use before import_services for correct YAML format
 ```
 
@@ -538,7 +531,7 @@ services:
 ## Error Handling
 
 ### Common Errors:
-- **"Project ID is required"**: Set `$projectId` environment variable or pass `project_id` parameter
+- **"Project ID is required. Run 'echo $projectId' in the container to get it."**: Agent must run 'echo $projectId' to get the project ID
 - **"serviceStackTypeNotFound"**: Use `get_service_types` to verify correct type names
 - **"Invalid hostname"**: Use alphanumeric characters only, no special characters
 - **"Response exceeds maximum tokens"**: Use `limit` parameter in `get_running_processes`
@@ -553,8 +546,7 @@ services:
 
 ## Environment Variables
 
-- `$projectId`: Project UUID used by all tools when project_id parameter is not provided
-- Tools automatically check this environment variable as fallback
+- `$projectId`: Project UUID available in the container environment. Agents can run 'echo $projectId' to get the current project ID and pass it to tools that require project_id parameter.
 
 ## Notes
 
