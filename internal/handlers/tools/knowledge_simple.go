@@ -17,46 +17,33 @@ import (
 func RegisterKnowledgeBase() {
 	shared.GlobalRegistry.Register(&shared.ToolDefinition{
 		Name:        "knowledge_base",
-		Description: `Provides comprehensive YAML examples and deployment patterns for specific runtimes.
+		Description: `Provides comprehensive service import YAML examples and configuration patterns.
 
-This tool provides the complete zerops.yml examples that align with the Zerops development workflow.
-Includes both 'dev' and 'prod' setups for proper development and staging deployment patterns.
-
-AVAILABLE RUNTIMES:
-- Web: nodejs, python, go, php, rust
-- Databases: postgresql, mariadb, mongodb
-- Cache: redis, valkey, keydb
-- Storage: elasticsearch, objectstorage
-- Web servers: nginx, static
+QUERY TYPES:
+- "service_import" - Get service import YAML patterns for databases, storage, runtime services
+- "runtime_name" (nodejs, python, go, php) - Get complete zerops.yml examples with dev/prod setups
+- "database_patterns" - Get database and storage service configurations
+- "autoscaling" - Get vertical/horizontal autoscaling configurations
 
 RETURNS:
-- Complete zerops.yml with dev/prod setups
-- Service import YAML examples
-- Runtime-specific configuration patterns
-- Development and production best practices
-
-KEY PATTERNS:
-- Dev setup: deployFiles: ./ (preserves source), start: zsc noop (manual control)
-- Prod setup: deployFiles: dist (production files), start: npm start (auto-start)
-- Environment variable patterns using ${variable} syntax
-- Proper port and build configurations
-
-WHEN TO USE:
-- Before importing services to get correct YAML format
-- Setting up development and staging environments
-- Learning proper zerops.yml structure
-- Understanding dev vs prod deployment differences`,
+- Complete service import YAML with all parameters
+- Runtime-specific zerops.yml with dev/prod setups  
+- Database, cache, storage service patterns
+- Autoscaling and mount configurations
+- Environment variables and secrets patterns`,
 		InputSchema: map[string]interface{}{
 			"type": "object",
 			"properties": map[string]interface{}{
 				"runtime": map[string]interface{}{
 					"type":        "string",
-					"description": "REQUIRED: Runtime type to get examples for",
+					"description": "REQUIRED: Query type - use 'service_import' for service import patterns, 'database_patterns' for databases/storage, 'autoscaling' for scaling configs, or specific runtime name (nodejs, python, go, php) for zerops.yml examples",
 					"enum": []interface{}{
-						"nodejs", "node", "python", "go", "golang", "php", "rust",
-						"postgresql", "postgres", "mariadb", "mysql", "mongodb", "mongo",
-						"redis", "valkey", "keydb", "elasticsearch", "rabbitmq",
-						"nginx", "static", "objectstorage",
+						"service_import", "database_patterns", "autoscaling",
+						"nodejs", "node", "bun", "deno", "golang", "go", "rust",
+						"python", "dotnet", "java", "php", "elixir", "gleam", "ruby",
+						"postgresql", "mariadb", "clickhouse", "valkey", "keydb",
+						"elasticsearch", "meilisearch", "typesense", "qdrant",
+						"kafka", "nats", "nginx", "static", "object-storage",
 					},
 				},
 			},
@@ -125,6 +112,12 @@ func handleKnowledgeBase(ctx context.Context, client *sdk.Handler, args map[stri
 
 	// Return knowledge base examples based on runtime
 	switch runtime {
+	case "service_import":
+		return getServiceImportPatterns(), nil
+	case "database_patterns":
+		return getDatabasePatterns(), nil
+	case "autoscaling":
+		return getAutoscalingPatterns(), nil
 	case "nodejs", "node":
 		return getNodejsKnowledge(), nil
 	case "python":
@@ -620,5 +613,356 @@ func getFallbackGuide(pathType string) interface{} {
 		return map[string]interface{}{
 			"error": "Unknown guide type",
 		}
+	}
+}
+
+func getServiceImportPatterns() interface{} {
+	return map[string]interface{}{
+		"title": "Complete Service Import YAML Patterns",
+		"description": "Examples use current versions from get_service_types. Always verify with get_service_types for latest versions.",
+		"patterns": map[string]interface{}{
+			"basic_runtime": `# Basic runtime service (Node.js, Python, Go, PHP)
+services:
+  - hostname: app                    # REQUIRED: alphanumeric only, max 25 chars
+    type: nodejs@22                  # REQUIRED: from get_service_types
+    startWithoutCode: true           # CRITICAL for dev services
+    enableSubdomainAccess: true      # Enable public access
+    minContainers: 1                 # Horizontal scaling
+    maxContainers: 3
+    buildFromGit: https://github.com/myorg/myapp
+    priority: 1                      # Higher = created first`,
+			
+			"dev_stage_pair": `# Development + Stage service pair (recommended)
+services:
+  - hostname: apidev
+    type: nodejs@22
+    startWithoutCode: true           # CRITICAL: Allows manual dev control
+    enableSubdomainAccess: true
+  - hostname: apistage  
+    type: nodejs@22                  # Auto-starts for production`,
+			
+			"with_secrets": `# Service with environment secrets
+services:
+  - hostname: app
+    type: nodejs@22
+    startWithoutCode: true
+    envSecrets:
+      SECRET_KEY: mySecretValue
+      API_TOKEN: abc123
+    dotEnvSecrets: |
+      DATABASE_URL=postgresql://user:pass@db:5432/myapp
+      REDIS_URL=redis://cache:6379`,
+			
+			"database_services": `# Database and storage services (import FIRST)
+services:
+  - hostname: db
+    type: postgresql@17              # Latest PostgreSQL
+    mode: NON_HA                     # or HA for high availability
+  - hostname: cache
+    type: valkey@7.2                 # Modern Redis alternative
+    mode: NON_HA
+  - hostname: storage
+    type: object-storage
+    objectStorageSize: 5             # Size in GB
+    objectStoragePolicy: public-read # or private, public-write, etc.`,
+			
+			"with_autoscaling": `# Service with vertical autoscaling
+services:
+  - hostname: app
+    type: nodejs@22
+    startWithoutCode: true
+    verticalAutoscaling:
+      minCpu: 1                      # Min virtual CPUs
+      maxCpu: 4                      # Max virtual CPUs  
+      cpuMode: SHARED                # SHARED or DEDICATED
+      minRam: 1                      # Min RAM in GB
+      maxRam: 8                      # Max RAM in GB
+      minDisk: 1                     # Min disk in GB
+      maxDisk: 20                    # Max disk in GB`,
+			
+			"with_mounts": `# Service with shared storage mounts
+services:
+  - hostname: app
+    type: php@8.3
+    buildFromGit: https://github.com/myorg/myapp
+    mount:
+      - sharedstorage1               # Mount existing shared storage
+      - sharedstorage2`,
+			
+			"complete_example": `# Complete example with all options
+services:
+  - hostname: webapi
+    type: nodejs@22
+    mode: NON_HA
+    startWithoutCode: true
+    enableSubdomainAccess: true
+    buildFromGit: https://github.com/myorg/webapp
+    priority: 2
+    minContainers: 2
+    maxContainers: 6
+    envSecrets:
+      JWT_SECRET: myJwtSecret
+      DATABASE_PASSWORD: dbPassword
+    dotEnvSecrets: |
+      NODE_ENV=development
+      LOG_LEVEL=debug
+    verticalAutoscaling:
+      minCpu: 1
+      maxCpu: 3
+      minRam: 2
+      maxRam: 6
+    mount:
+      - uploads`,
+		},
+		"field_reference": map[string]interface{}{
+			"hostname": "REQUIRED: Unique service identifier, alphanumeric only, max 25 chars",
+			"type": "REQUIRED: Service type and version (from get_service_types)",
+			"mode": "HA or NON_HA (default: NON_HA)",
+			"startWithoutCode": "CRITICAL for dev services - prevents auto-start",
+			"enableSubdomainAccess": "Enable public access via Zerops subdomain",
+			"buildFromGit": "GitHub/GitLab repository URL for one-time build",
+			"priority": "Creation order (higher = created first)",
+			"minContainers/maxContainers": "Horizontal autoscaling (1-10)",
+			"envSecrets": "Secret environment variables (hidden in GUI)",
+			"dotEnvSecrets": ".env format environment variables",
+			"objectStorageSize": "Storage size in GB (for objectstorage type)",
+			"objectStoragePolicy": "private, public-read, public-write, public-read-write, custom",
+			"verticalAutoscaling": "CPU, RAM, disk scaling configuration",
+			"mount": "List of shared storage services to mount",
+		},
+		"workflow_order": []string{
+			"1. ALWAYS run get_service_types first to get exact service names and versions",
+			"2. Import databases/storage FIRST (postgresql, valkey, object-storage)",
+			"3. Monitor completion with get_process_status", 
+			"4. Import runtime services with startWithoutCode: true",
+			"5. Monitor completion with get_process_status",
+			"6. Deploy hello-world pattern to validate pipeline",
+			"7. Begin real development only after validation",
+		},
+	}
+}
+
+func getDatabasePatterns() interface{} {
+	return map[string]interface{}{
+		"title": "Database and Storage Service Patterns",
+		"description": "Complete configuration examples for databases, caches, and storage services",
+		"databases": map[string]interface{}{
+			"postgresql": `# PostgreSQL database
+services:
+  - hostname: db
+    type: postgresql@17              # Latest stable version
+    mode: NON_HA                     # or HA for production`,
+			
+			"mariadb": `# MariaDB database
+services:
+  - hostname: db
+    type: mariadb@11
+    mode: NON_HA`,
+			
+			"clickhouse": `# ClickHouse database
+services:
+  - hostname: analytics
+    type: clickhouse@25.3
+    mode: NON_HA`,
+			
+		},
+		"caches": map[string]interface{}{
+			"valkey": `# Valkey (Redis alternative)
+services:
+  - hostname: cache
+    type: valkey@7
+    mode: NON_HA`,
+			
+			"keydb": `# KeyDB (multi-master Redis)
+services:
+  - hostname: cache
+    type: keydb@6
+    mode: NON_HA`,
+		},
+		"search_engines": map[string]interface{}{
+			"elasticsearch": `# Elasticsearch
+services:
+  - hostname: search
+    type: elasticsearch@8.16
+    mode: NON_HA`,
+			
+			"meilisearch": `# Meilisearch
+services:
+  - hostname: search
+    type: meilisearch@1
+    mode: NON_HA`,
+			
+			"typesense": `# Typesense
+services:
+  - hostname: search
+    type: typesense@0
+    mode: NON_HA`,
+		},
+		"vector_databases": map[string]interface{}{
+			"qdrant": `# Qdrant vector database
+services:
+  - hostname: vectors
+    type: qdrant@1
+    mode: NON_HA`,
+		},
+		"message_brokers": map[string]interface{}{
+			"kafka": `# Apache Kafka
+services:
+  - hostname: events
+    type: kafka@3.8
+    mode: NON_HA`,
+			
+			"nats": `# NATS messaging
+services:
+  - hostname: messaging
+    type: nats@2.10
+    mode: NON_HA`,
+		},
+		"storage": map[string]interface{}{
+			"object_storage": `# Object storage (S3-compatible)
+services:
+  - hostname: storage
+    type: object-storage
+    objectStorageSize: 10            # Size in GB
+    objectStoragePolicy: private     # Access policy`,
+			
+			"shared_storage": `# Shared storage
+services:
+  - hostname: shared
+    type: shared-storage`,
+			
+			"elasticsearch": `# Elasticsearch
+services:
+  - hostname: search
+    type: elasticsearch@8.16
+    mode: NON_HA`,
+		},
+		"complete_stack": `# Complete managed services stack
+services:
+  # Primary database
+  - hostname: db
+    type: postgresql@17
+    mode: NON_HA
+    priority: 10                     # Create first
+  
+  # Cache layer  
+  - hostname: cache
+    type: valkey@7
+    mode: NON_HA
+    priority: 9
+  
+  # File storage
+  - hostname: storage
+    type: objectstorage
+    objectStorageSize: 50
+    objectStoragePolicy: public-read
+    priority: 8
+  
+  # Search engine
+  - hostname: search
+    type: elasticsearch@8
+    mode: NON_HA
+    priority: 7
+  
+  # Message broker
+  - hostname: events
+    type: kafka@3.8
+    mode: NON_HA
+    priority: 6`,
+		"environment_variables": map[string]interface{}{
+			"description": "Auto-generated environment variables available to other services",
+			"postgresql": []string{
+				"db_connectionString",
+				"db_hostname", 
+				"db_port",
+				"db_user",
+				"db_password",
+			},
+			"objectstorage": []string{
+				"storage_hostname",
+				"storage_accessKeyId", 
+				"storage_secretAccessKey",
+				"storage_bucketName",
+			},
+			"usage": "Access from other services using ${servicename_variablename} syntax",
+		},
+	}
+}
+
+func getAutoscalingPatterns() interface{} {
+	return map[string]interface{}{
+		"title": "Autoscaling Configuration Patterns",
+		"description": "Vertical and horizontal autoscaling examples for services",
+		"vertical_autoscaling": map[string]interface{}{
+			"basic": `# Basic vertical autoscaling
+services:
+  - hostname: app
+    type: nodejs@22
+    verticalAutoscaling:
+      minCpu: 1                      # Minimum virtual CPUs
+      maxCpu: 4                      # Maximum virtual CPUs
+      minRam: 1                      # Minimum RAM in GB
+      maxRam: 8                      # Maximum RAM in GB`,
+			
+			"advanced": `# Advanced vertical autoscaling with thresholds
+services:
+  - hostname: app
+    type: nodejs@22
+    verticalAutoscaling:
+      minCpu: 2
+      maxCpu: 8
+      cpuMode: DEDICATED             # SHARED or DEDICATED
+      minRam: 2
+      maxRam: 16
+      minDisk: 5                     # Minimum disk space in GB
+      maxDisk: 50                    # Maximum disk space in GB
+      startCpuCoreCount: 2           # Initial CPU cores
+      minFreeCpuCores: 0.5           # Min free CPU before scaling
+      minFreeCpuPercent: 20          # Min free CPU percentage
+      minFreeRamGB: 1                # Min free RAM in GB
+      minFreeRamPercent: 15          # Min free RAM percentage`,
+		},
+		"horizontal_autoscaling": map[string]interface{}{
+			"basic": `# Basic horizontal autoscaling
+services:
+  - hostname: app
+    type: nodejs@22
+    minContainers: 2                 # Minimum containers
+    maxContainers: 6                 # Maximum containers (max 10)`,
+			
+			"load_balanced": `# Load-balanced service with scaling
+services:
+  - hostname: api
+    type: nodejs@22
+    enableSubdomainAccess: true
+    minContainers: 3                 # Always have 3 instances
+    maxContainers: 10                # Scale up to 10 under load`,
+		},
+		"combined_scaling": `# Both vertical and horizontal autoscaling
+services:
+  - hostname: webapp
+    type: nodejs@22
+    enableSubdomainAccess: true
+    # Horizontal scaling
+    minContainers: 2
+    maxContainers: 8
+    # Vertical scaling  
+    verticalAutoscaling:
+      minCpu: 1
+      maxCpu: 4
+      cpuMode: SHARED
+      minRam: 2
+      maxRam: 8
+      minDisk: 5
+      maxDisk: 20`,
+		"scaling_tips": []string{
+			"Start with conservative limits and increase based on monitoring",
+			"Use horizontal scaling for stateless applications",
+			"Use vertical scaling for CPU/memory intensive tasks", 
+			"DEDICATED CPU mode for predictable performance",
+			"SHARED CPU mode for cost optimization",
+			"Monitor scaling events in Zerops dashboard",
+			"Set appropriate free resource thresholds to prevent constant scaling",
+		},
 	}
 }

@@ -365,6 +365,18 @@ func handleGetServiceTypes(ctx context.Context, client *sdk.Handler, args map[st
 		// Extract service type name
 		baseName := item.Name.Native()
 		
+		// Filter out internal build/prepare services and unavailable services
+		if strings.HasPrefix(baseName, "build ") ||
+		   strings.HasPrefix(baseName, "prepare ") ||
+		   strings.HasPrefix(baseName, "zbuild ") ||
+		   baseName == "MongoDB" ||
+		   baseName == "RabbitMQ" ||
+		   baseName == "Core" ||
+		   baseName == "L7 HTTP Balancer" ||
+		   baseName == "Generic Runtime" {
+			continue
+		}
+		
 		// If there's a default version, add it
 		if item.DefaultServiceStackVersion != nil {
 			typeName := fmt.Sprintf("%s@%s", 
