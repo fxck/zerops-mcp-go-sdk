@@ -567,13 +567,47 @@ func handleEnablePreviewSubdomain(ctx context.Context, client *sdk.Handler, args
 		return shared.ErrorResponse("Service ID is required"), nil
 	}
 
-	// First, check if subdomain access is already enabled by searching for existing HTTP routing
+	// First, get the service details to obtain projectId
+	servicePath := path.ServiceStackId{Id: uuid.ServiceStackId(serviceID)}
+	serviceResp, err := client.GetServiceStack(ctx, servicePath)
+	if err != nil {
+		return shared.ErrorResponse(fmt.Sprintf("Failed to get service details: %v", err)), nil
+	}
+
+	serviceOutput, err := serviceResp.Output()
+	if err != nil {
+		return shared.ErrorResponse(fmt.Sprintf("Failed to parse service details: %v", err)), nil
+	}
+
+	// Get project details to obtain clientId (following discovery tool pattern)
+	projectPath := path.ProjectId{Id: serviceOutput.ProjectId}
+	projectResp, err := client.GetProject(ctx, projectPath)
+	if err != nil {
+		return shared.ErrorResponse(fmt.Sprintf("Failed to get project details: %v", err)), nil
+	}
+
+	projectOutput, err := projectResp.Output()
+	if err != nil {
+		return shared.ErrorResponse(fmt.Sprintf("Failed to parse project details: %v", err)), nil
+	}
+
+	// Now check if subdomain access is already enabled by searching for existing HTTP routing
 	routingFilter := body.EsFilter{
 		Search: []body.EsSearchItem{
 			{
 				Name:     "serviceStackId",
 				Operator: "eq",
 				Value:    types.String(serviceID),
+			},
+			{
+				Name:     "clientId",
+				Operator: "eq",
+				Value:    projectOutput.ClientId.TypedString(),
+			},
+			{
+				Name:     "projectId",
+				Operator: "eq",
+				Value:    serviceOutput.ProjectId.TypedString(),
 			},
 		},
 	}
@@ -606,7 +640,6 @@ func handleEnablePreviewSubdomain(ctx context.Context, client *sdk.Handler, args
 	}
 
 	// If no existing routing found, proceed to enable subdomain access
-	servicePath := path.ServiceStackId{Id: uuid.ServiceStackId(serviceID)}
 	resp, err := client.PutServiceStackEnableSubdomainAccess(ctx, servicePath)
 	if err != nil {
 		return shared.ErrorResponse(fmt.Sprintf("Failed to enable subdomain: %v", err)), nil
