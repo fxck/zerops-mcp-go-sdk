@@ -840,11 +840,9 @@ func handleRestartService(ctx context.Context, client *sdk.Handler, args map[str
 		return shared.ErrorResponse("Service ID is required"), nil
 	}
 
-	// Note: This is a placeholder implementation
-	// The actual restart would need proper SDK methods
 	servicePath := path.ServiceStackId{Id: uuid.ServiceStackId(serviceID)}
 	
-	// Get service info to validate it exists
+	// Get service info to validate it exists and get service name
 	serviceResp, err := client.GetServiceStack(ctx, servicePath)
 	if err != nil {
 		return shared.ErrorResponse(fmt.Sprintf("Failed to get service: %v", err)), nil
@@ -855,16 +853,40 @@ func handleRestartService(ctx context.Context, client *sdk.Handler, args map[str
 		return shared.ErrorResponse(fmt.Sprintf("Failed to parse service: %v", err)), nil
 	}
 
-	// TODO: Implement actual restart via proper SDK method
-	// For now, return a simulated process response
-	processID := "restart-" + serviceID[:8] + "-" + fmt.Sprintf("%d", time.Now().Unix())
-	
+	// Perform actual restart: Stop then Start
+	// First, stop the service
+	stopResp, err := client.PutServiceStackStop(ctx, servicePath)
+	if err != nil {
+		return shared.ErrorResponse(fmt.Sprintf("Failed to stop service: %v", err)), nil
+	}
+
+	stopProcess, err := stopResp.Output()
+	if err != nil {
+		return shared.ErrorResponse(fmt.Sprintf("Failed to parse stop process: %v", err)), nil
+	}
+
+	// Then, start the service 
+	startResp, err := client.PutServiceStackStart(ctx, servicePath)
+	if err != nil {
+		return shared.ErrorResponse(fmt.Sprintf("Failed to start service: %v", err)), nil
+	}
+
+	startProcess, err := startResp.Output()
+	if err != nil {
+		return shared.ErrorResponse(fmt.Sprintf("Failed to parse start process: %v", err)), nil
+	}
+
+	// Return the start process information (most relevant for monitoring)
 	return map[string]interface{}{
-		"process_id":    processID,
-		"status":        "process_started",
-		"service_id":    serviceID,
-		"service_name":  serviceOutput.Name.Native(),
-		"message":       "Service restart initiated. Use 'get_process_status' to monitor progress.",
+		"process_id":      string(startProcess.Id),
+		"service_id":      serviceID,
+		"service_name":    serviceOutput.Name.Native(),
+		"status":          string(startProcess.Status),
+		"action_name":     startProcess.ActionName.Native(),
+		"created":         startProcess.Created.Native(),
+		"stop_process_id": string(stopProcess.Id),
+		"start_process_id": string(startProcess.Id),
+		"message":         "Service restart initiated (stop + start). Use 'get_process_status' to monitor progress.",
 	}, nil
 }
 
@@ -881,20 +903,50 @@ func handleRemountService(ctx context.Context, client *sdk.Handler, args map[str
 	// Note: This is a placeholder implementation
 	// The actual remount would need proper SDK methods or system commands
 	
-	mkdirCommand := fmt.Sprintf(`mkdir -p "/var/www/%s"`, serviceName)
-	sshfsCommand := fmt.Sprintf(`sshfs -o StrictHostKeyChecking=no,reconnect,ServerAliveInterval=15,ServerAliveCountMax=3,auto_cache,kernel_cache "%s:/var/www" "/var/www/%s"`, serviceName, serviceName)
+	mountPath := fmt.Sprintf("/var/www/%s", serviceName)
+	
+	// Commands to check and handle existing mounts
+	checkMountCommand := fmt.Sprintf(`mount | grep "%s"`, mountPath)
+	unmountCommand := fmt.Sprintf(`fusermount -u "%s" 2>/dev/null || umount "%s" 2>/dev/null || true`, mountPath, mountPath)
+	mkdirCommand := fmt.Sprintf(`mkdir -p "%s"`, mountPath)
+	sshfsCommand := fmt.Sprintf(`sshfs -o StrictHostKeyChecking=no,reconnect,ServerAliveInterval=15,ServerAliveCountMax=3,auto_cache,kernel_cache "%s:/var/www" "%s"`, serviceName, mountPath)
+	
+	// Combined command that checks, unmounts if needed, creates dir, and mounts
+	combinedCommand := fmt.Sprintf(`
+# Check if already mounted and unmount if necessary
+if mount | grep -q "%s"; then
+    echo "Unmounting existing mount at %s"
+    fusermount -u "%s" 2>/dev/null || umount "%s" 2>/dev/null || true
+fi
+
+# Create mount directory if it doesn't exist
+mkdir -p "%s"
+
+# Mount SSHFS
+sshfs -o StrictHostKeyChecking=no,reconnect,ServerAliveInterval=15,ServerAliveCountMax=3,auto_cache,kernel_cache "%s:/var/www" "%s"
+`, mountPath, mountPath, mountPath, mountPath, mountPath, serviceName, mountPath)
 	
 	return map[string]interface{}{
 		"status":       "success",
 		"service_name": serviceName,
+		"mount_path":   mountPath,
 		"commands": map[string]interface{}{
-			"mkdir": mkdirCommand,
-			"sshfs": sshfsCommand,
+			"check_mount": checkMountCommand,
+			"unmount":     unmountCommand,
+			"mkdir":       mkdirCommand,
+			"sshfs":       sshfsCommand,
+			"combined":    combinedCommand,
 		},
-		"message":      fmt.Sprintf("Run these commands to remount SSHFS for service '%s':", serviceName),
+		"message":      fmt.Sprintf("Commands to remount SSHFS for service '%s':", serviceName),
 		"instructions": []string{
-			"1. Create mount directory: " + mkdirCommand,
-			"2. Mount SSHFS: " + sshfsCommand,
+			"Option 1: Run the combined command that handles everything:",
+			combinedCommand,
+			"",
+			"Option 2: Run commands step by step:",
+			"1. Check if already mounted: " + checkMountCommand,
+			"2. Unmount if needed: " + unmountCommand,
+			"3. Create mount directory: " + mkdirCommand,
+			"4. Mount SSHFS: " + sshfsCommand,
 		},
 	}, nil
 }

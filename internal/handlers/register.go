@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 
 	"github.com/modelcontextprotocol/go-sdk/jsonschema"
@@ -132,10 +133,20 @@ func RegisterForMCPWithClientInfo(server *mcp.Server, client *sdk.Handler, clien
 				}
 			}
 
-			// Fallback for simple results
+			// Fallback for simple results - convert to JSON
+			jsonBytes, err := json.Marshal(result)
+			if err != nil {
+				return &mcp.CallToolResultFor[any]{
+					Content: []mcp.Content{
+						&mcp.TextContent{Text: fmt.Sprintf("Error marshaling result: %v", err)},
+					},
+					IsError: true,
+				}, nil
+			}
+			
 			return &mcp.CallToolResultFor[any]{
 				Content: []mcp.Content{
-					&mcp.TextContent{Text: fmt.Sprintf("%v", result)},
+					&mcp.TextContent{Text: string(jsonBytes)},
 				},
 			}, nil
 		})

@@ -16,15 +16,20 @@ import (
 func RegisterDiscovery() {
 	shared.GlobalRegistry.Register(&shared.ToolDefinition{
 		Name:        "discovery",
-		Description: `ESSENTIAL FIRST STEP: Discovers all services in a project with their IDs, hostnames, service types, and environment variable availability.
+		Description: `ESSENTIAL FIRST STEP: Discovers all services in a project with their IDs, hostnames, service types, deployment status, and environment variable availability.
 
 CRITICAL: Requires a project ID. To get the project ID, the agent can run 'echo $projectId' in the container environment.
 
 Returns condensed data about:
 - All services with their unique IDs (required for other tools)
-- Service hostnames and types
+- Service hostnames, types, and current status
+- Active app version details (for runtime services with deployments)
 - Available environment variables at project and service level
 - Current project configuration
+
+Optional filters:
+- service_id: Get details for a specific service by ID
+- service_name: Get details for a specific service by hostname
 
 Always use this tool first to understand the project structure before performing other operations.`,
 		InputSchema: map[string]interface{}{
@@ -33,6 +38,14 @@ Always use this tool first to understand the project structure before performing
 				"project_id": map[string]interface{}{
 					"type":        "string",
 					"description": "Zerops project ID. Get it by running 'echo $projectId' in the container.",
+				},
+				"service_id": map[string]interface{}{
+					"type":        "string",
+					"description": "Optional: Service ID to get details for a single service only",
+				},
+				"service_name": map[string]interface{}{
+					"type":        "string",
+					"description": "Optional: Service hostname/name to get details for a single service only",
 				},
 			},
 			"required":             []string{"project_id"},
@@ -112,20 +125,43 @@ func handleDiscovery(ctx context.Context, client *sdk.Handler, args map[string]i
 		projectEnvKeys = append(projectEnvKeys, envItem.Key.Native())
 	}
 
+	// Get optional service filtering parameters
+	serviceIDFilter, _ := args["service_id"].(string)
+	serviceNameFilter, _ := args["service_name"].(string)
+	
 	// Search for services in this specific project
-	serviceFilter := body.EsFilter{
-		Search: []body.EsSearchItem{
-			{
-				Name:     "projectId",
-				Operator: "eq",
-				Value:    types.String(projectID),
-			},
-			{
-				Name:     "clientId",
-				Operator: "eq",
-				Value:    projectOutput.ClientId.TypedString(),
-			},
+	searchItems := []body.EsSearchItem{
+		{
+			Name:     "projectId",
+			Operator: "eq",
+			Value:    types.String(projectID),
 		},
+		{
+			Name:     "clientId",
+			Operator: "eq",
+			Value:    projectOutput.ClientId.TypedString(),
+		},
+	}
+	
+	// Add service-specific filters if provided
+	if serviceIDFilter != "" {
+		searchItems = append(searchItems, body.EsSearchItem{
+			Name:     "id",
+			Operator: "eq",
+			Value:    types.String(serviceIDFilter),
+		})
+	}
+	
+	if serviceNameFilter != "" {
+		searchItems = append(searchItems, body.EsSearchItem{
+			Name:     "name",
+			Operator: "eq",
+			Value:    types.String(serviceNameFilter),
+		})
+	}
+	
+	serviceFilter := body.EsFilter{
+		Search: searchItems,
 	}
 
 	serviceResp, err := client.PostServiceStackSearch(ctx, serviceFilter)
@@ -139,6 +175,13 @@ func handleDiscovery(ctx context.Context, client *sdk.Handler, args map[string]i
 	}
 
 	if len(serviceOutput.Items) == 0 {
+		message := "No services found. Use 'import_services' to add services."
+		if serviceIDFilter != "" {
+			message = fmt.Sprintf("No service found with ID '%s'", serviceIDFilter)
+		} else if serviceNameFilter != "" {
+			message = fmt.Sprintf("No service found with name '%s'", serviceNameFilter)
+		}
+		
 		return map[string]interface{}{
 			"services": []interface{}{},
 			"project": map[string]interface{}{
@@ -146,7 +189,7 @@ func handleDiscovery(ctx context.Context, client *sdk.Handler, args map[string]i
 				"name":     project.Name.Native(),
 				"env_keys": projectEnvKeys,
 			},
-			"message": "No services found. Use 'import_services' to add services.",
+			"message": message,
 		}, nil
 	}
 
@@ -196,6 +239,16 @@ func handleDiscovery(ctx context.Context, client *sdk.Handler, args map[string]i
 			"status":        string(service.Status),
 			"env_keys":      serviceEnvKeys,
 			"process_count": processCount,
+		}
+		
+		// Add active app version info if available (for runtime services)
+		if service.ActiveAppVersion != nil {
+			serviceInfo["active_version"] = map[string]interface{}{
+				"id":         string(service.ActiveAppVersion.Id),
+				"status":     string(service.ActiveAppVersion.Status),
+				"created":    service.ActiveAppVersion.Created.Native(),
+				"updated":    service.ActiveAppVersion.LastUpdate.Native(),
+			}
 		}
 		services = append(services, serviceInfo)
 	}
