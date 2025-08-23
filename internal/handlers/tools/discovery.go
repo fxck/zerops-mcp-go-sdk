@@ -193,6 +193,7 @@ func handleDiscovery(ctx context.Context, client *sdk.Handler, args map[string]i
 			"id":            string(service.Id),
 			"hostname":      service.Name.Native(),
 			"type":          string(service.ServiceStackTypeVersionId),
+			"status":        string(service.Status),
 			"env_keys":      serviceEnvKeys,
 			"process_count": processCount,
 		}
