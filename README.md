@@ -196,9 +196,25 @@ The Zerops MCP SDK provides comprehensive tools for managing Zerops projects, se
 
 ```json
 {
-  "status": "success",
-  "process_id": "abc123def456",
-  "message": "Services imported successfully. Use 'discovery' tool to see details."
+  "status": "import_completed",
+  "project_id": "eOc4woejQjC5KhohvkVKPQ",
+  "project_name": "my-project",
+  "services": [
+    {
+      "id": "WAlvwg9GQ3qBQAi37Gts5A",
+      "hostname": "nodejs-app",
+      "process_count": 1,
+      "import_process_id": "abc123def456"
+    },
+    {
+      "id": "XBmwxh0HQ4rCRAj48Hut6B",
+      "hostname": "postgres-db",
+      "process_count": 1,
+      "import_process_id": "def789ghi012"
+    }
+  ],
+  "count": 2,
+  "message": "Services imported successfully. Use 'discovery' tool to get full details."
 }
 ```
 </details>

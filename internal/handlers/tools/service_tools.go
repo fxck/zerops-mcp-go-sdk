@@ -520,40 +520,44 @@ func handleImportServices(ctx context.Context, client *sdk.Handler, args map[str
 		return shared.ErrorResponse(fmt.Sprintf("Import failed: %v", err)), nil
 	}
 
-	// Capture response metadata
-	statusCode := resp.StatusCode()
-	headers := resp.Headers()
-
-	// Try to get raw response for better error details
-	outputInterface, outputErr := resp.OutputInterface()
-
 	output, err := resp.Output()
 	if err != nil {
-		// Even on error, return metadata including raw response
-		errorResponse := map[string]interface{}{
-			"status":      "import_failed",
-			"status_code": statusCode,
-			"headers":     headers,
-			"error":       err.Error(),
-			"message":     fmt.Sprintf("Import failed with status %d: %v", statusCode, err),
-		}
+		return shared.ErrorResponse(fmt.Sprintf("Import failed: %v", err)), nil
+	}
 
-		// Include raw response if available
-		if outputErr == nil && outputInterface != nil {
-			errorResponse["raw_response"] = outputInterface
+	// Extract just the essential information from imported services
+	var importedServices []map[string]interface{}
+	for _, stack := range output.ServiceStacks {
+		serviceInfo := map[string]interface{}{
+			"id":       string(stack.Id),
+			"hostname": stack.Name.Native(),
 		}
-
-		return errorResponse, nil
+		
+		// Add error if present
+		if stack.Error != nil {
+			serviceInfo["error"] = stack.Error
+		}
+		
+		// Add process count if there are processes
+		if len(stack.Processes) > 0 {
+			serviceInfo["process_count"] = len(stack.Processes)
+			
+			// Get the first process ID as the main import process
+			if len(stack.Processes) > 0 {
+				serviceInfo["import_process_id"] = string(stack.Processes[0].Id)
+			}
+		}
+		
+		importedServices = append(importedServices, serviceInfo)
 	}
 
 	return map[string]interface{}{
-		"status":         "import_completed",
-		"status_code":    statusCode,
-		"headers":        headers,
-		"project_id":     string(output.ProjectId),
-		"project_name":   output.ProjectName.Native(),
-		"service_stacks": output.ServiceStacks,
-		"message":        "Services imported successfully. Use 'discovery' tool to see details.",
+		"status":       "import_completed",
+		"project_id":   string(output.ProjectId),
+		"project_name": output.ProjectName.Native(),
+		"services":     importedServices,
+		"count":        len(importedServices),
+		"message":      "Services imported successfully. Use 'discovery' tool to get full details.",
 	}, nil
 }
 
