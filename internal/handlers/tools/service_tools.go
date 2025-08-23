@@ -132,7 +132,11 @@ Use knowledge_base or load_platform_guide for complete workflow patterns and exa
 	// Enable preview subdomain
 	shared.GlobalRegistry.Register(&shared.ToolDefinition{
 		Name: "enable_preview_subdomain",
-		Description: `Enables public subdomain access for a web service (stage-type), making it accessible via HTTPS URL.
+		Description: `Enables public subdomain access for a web service, making it accessible via HTTPS URL.
+
+BEHAVIOR:
+- If subdomain is already enabled: Returns existing URL immediately
+- If not enabled: Starts enablement process asynchronously
 
 REQUIREMENTS:
 - service_id: Get from discovery tool
@@ -142,7 +146,7 @@ REQUIREMENTS:
 RESULT:
 - Generates public URL: https://servicename-projectname.prg1.zerops.app
 - Enables HTTPS access with automatic SSL certificate
-- URL becomes immediately accessible once process completes
+- For new enablement: Use 'get_running_processes' to monitor progress
 
 NOTE: Only works for web services. Databases and internal services don't need subdomains.`,
 		InputSchema: map[string]interface{}{
@@ -563,6 +567,45 @@ func handleEnablePreviewSubdomain(ctx context.Context, client *sdk.Handler, args
 		return shared.ErrorResponse("Service ID is required"), nil
 	}
 
+	// First, check if subdomain access is already enabled by searching for existing HTTP routing
+	routingFilter := body.EsFilter{
+		Search: []body.EsSearchItem{
+			{
+				Name:     "serviceStackId",
+				Operator: "eq",
+				Value:    types.String(serviceID),
+			},
+		},
+	}
+
+	routingResp, err := client.PostPublicHttpRoutingSearch(ctx, routingFilter)
+	if err != nil {
+		return shared.ErrorResponse(fmt.Sprintf("Failed to check existing routing: %v", err)), nil
+	}
+
+	routingOutput, err := routingResp.Output()
+	if err != nil {
+		return shared.ErrorResponse(fmt.Sprintf("Failed to parse routing response: %v", err)), nil
+	}
+
+	// If routing already exists, return the existing subdomain URL
+	if len(routingOutput.Items) > 0 {
+		existingRouting := routingOutput.Items[0]
+		var domainName string
+		if len(existingRouting.Domains) > 0 {
+			domainName = existingRouting.Domains[0].DomainName.Native()
+		}
+		
+		return map[string]interface{}{
+			"status":     "already_enabled",
+			"subdomain":  domainName,
+			"url":        fmt.Sprintf("https://%s", domainName),
+			"routing_id": string(existingRouting.Id),
+			"message":    "Subdomain access is already enabled for this service.",
+		}, nil
+	}
+
+	// If no existing routing found, proceed to enable subdomain access
 	servicePath := path.ServiceStackId{Id: uuid.ServiceStackId(serviceID)}
 	resp, err := client.PutServiceStackEnableSubdomainAccess(ctx, servicePath)
 	if err != nil {
