@@ -62,7 +62,7 @@ var severityLevels = map[string]int{
 func RegisterServiceTools() {
 	// Get service types
 	shared.GlobalRegistry.Register(&shared.ToolDefinition{
-		Name:        "get_service_types",
+		Name: "get_service_types",
 		Description: `Returns comprehensive list of available Zerops service types and versions.
 
 WHEN TO USE:
@@ -71,13 +71,13 @@ WHEN TO USE:
 - When service import fails with "serviceStackTypeNotFound"
 
 IMPORTANT: Service types use specific naming format:
-- Format: "runtime@version" (e.g., "nodejs@22", "postgresql@16") 
+- Format: "runtime@version" (e.g., "nodejs@22", "postgresql@16")
 - NOT "node@22" or "postgres@16"
 - NOT "php-apache@8.3" (use "php@8.3")
 
 Returns current available types including:
 - Runtime services: nodejs, python, go, php, rust, etc.
-- Databases: postgresql, mariadb, mongodb, etc. 
+- Databases: postgresql, mariadb, mongodb, etc.
 - Cache: redis, valkey, keydb
 - Storage: objectstorage, elasticsearch
 - Web servers: nginx, static
@@ -93,7 +93,7 @@ Use knowledge_base tool for detailed configuration examples.`,
 
 	// Import services
 	shared.GlobalRegistry.Register(&shared.ToolDefinition{
-		Name:        "import_services",
+		Name: "import_services",
 		Description: `Imports services into a Zerops project using YAML configuration.
 
 CRITICAL WORKFLOW:
@@ -131,13 +131,8 @@ Use knowledge_base or load_platform_guide for complete workflow patterns and exa
 
 	// Enable preview subdomain
 	shared.GlobalRegistry.Register(&shared.ToolDefinition{
-		Name:        "enable_preview_subdomain",
-		Description: `Enables public subdomain access for a web service, making it accessible via HTTPS URL.
-
-WHEN TO USE:
-- After importing web services (nodejs, php, python, go, etc.)
-- When you need public access to a service
-- For frontend applications or APIs
+		Name: "enable_preview_subdomain",
+		Description: `Enables public subdomain access for a web service (stage-type), making it accessible via HTTPS URL.
 
 REQUIREMENTS:
 - service_id: Get from discovery tool
@@ -167,12 +162,12 @@ NOTE: Only works for web services. Databases and internal services don't need su
 
 	// Scale service
 	shared.GlobalRegistry.Register(&shared.ToolDefinition{
-		Name:        "scale_service",
+		Name: "scale_service",
 		Description: `Configures scaling parameters for a service including CPU, RAM, and container count.
 
 SCALING OPTIONS:
 - CPU: 0.25 to 20 cores (decimal values allowed)
-- RAM: 0.5 to 32 GB (decimal values allowed)  
+- RAM: 0.5 to 32 GB (decimal values allowed)
 - Containers: 1 to 6 containers per service
 
 AUTO-SCALING:
@@ -242,7 +237,7 @@ WHEN TO USE:
 
 	// Get service logs
 	shared.GlobalRegistry.Register(&shared.ToolDefinition{
-		Name:        "get_service_logs",
+		Name: "get_service_logs",
 		Description: `Retrieves logs from a specific service with comprehensive filtering options.
 
 LOG OPTIONS:
@@ -259,7 +254,7 @@ SEVERITY LEVELS:
 
 MESSAGE TYPES:
 - APPLICATION: Application stdout/stderr logs
-- SYSTEM: System and runtime logs  
+- SYSTEM: System and runtime logs
 - BUILD: Build and deployment logs
 
 FORMATS:
@@ -330,12 +325,12 @@ NOTE: Large log requests may take time. Start with smaller line counts.`,
 
 	// Restart service
 	shared.GlobalRegistry.Register(&shared.ToolDefinition{
-		Name:        "restart_service",
+		Name: "restart_service",
 		Description: `Restarts a service (async operation returning process_id).
 
 CRITICAL REQUIREMENTS:
 - MANDATORY after setting environment variables
-- Must restart dependent services that read changed variables  
+- Must restart dependent services that read changed variables
 - Monitor completion with get_process_status
 - Environment variables NOT available until restart completes
 
@@ -357,14 +352,16 @@ Use knowledge_base or load_platform_guide for complete restart workflow and depe
 
 	// Remount service
 	shared.GlobalRegistry.Register(&shared.ToolDefinition{
-		Name:        "remount_service",
+		Name: "remount_service",
 		Description: `Reconnects SSHFS mounts for a service (fixes file system connection issues).
 
 WHEN TO USE:
 - When file system access is broken
-- After network connectivity issues  
+- After network connectivity issues
 - When getting file permission errors
 - To refresh SSHFS connections
+- After deploying a new version of any service and need to work on it
+- After restarting any service
 
 RETURNS:
 - mkdir command to create mount directory (required first)
@@ -389,14 +386,13 @@ NOTE: Always run mkdir first, then sshfs command.`,
 
 	// Get process status
 	shared.GlobalRegistry.Register(&shared.ToolDefinition{
-		Name:        "get_process_status",
+		Name: "get_process_status",
 		Description: `Gets the status of a specific process by its ID.
 
 WHEN TO USE:
-- Monitor async operations (restart_service, enable_preview_subdomain, import_services)
+- Monitor async operations (restart_service, enable_preview_subdomain)
 - Check if a process completed successfully
 - Get detailed process information
-- Debug failed operations
 
 PROCESS STATES:
 - running: Process is actively running
@@ -443,30 +439,30 @@ func handleGetServiceTypes(ctx context.Context, client *sdk.Handler, args map[st
 	for _, item := range output.Items {
 		// Extract service type name
 		baseName := item.Name.Native()
-		
+
 		// Filter out internal build/prepare services and unavailable services
 		if strings.HasPrefix(baseName, "build ") ||
-		   strings.HasPrefix(baseName, "prepare ") ||
-		   strings.HasPrefix(baseName, "zbuild ") ||
-		   baseName == "MongoDB" ||
-		   baseName == "RabbitMQ" ||
-		   baseName == "Core" ||
-		   baseName == "L7 HTTP Balancer" ||
-		   baseName == "Generic Runtime" {
+			strings.HasPrefix(baseName, "prepare ") ||
+			strings.HasPrefix(baseName, "zbuild ") ||
+			baseName == "MongoDB" ||
+			baseName == "RabbitMQ" ||
+			baseName == "Core" ||
+			baseName == "L7 HTTP Balancer" ||
+			baseName == "Generic Runtime" {
 			continue
 		}
-		
+
 		// If there's a default version, add it
 		if item.DefaultServiceStackVersion != nil {
-			typeName := fmt.Sprintf("%s@%s", 
+			typeName := fmt.Sprintf("%s@%s",
 				baseName,
 				item.DefaultServiceStackVersion.Name.Native())
 			serviceTypes = append(serviceTypes, typeName)
 		}
-		
+
 		// Also add all available versions
 		for _, version := range item.ServiceStackTypeVersionList {
-			versionedType := fmt.Sprintf("%s@%s", 
+			versionedType := fmt.Sprintf("%s@%s",
 				baseName,
 				version.Name.Native())
 			serviceTypes = append(serviceTypes, versionedType)
@@ -475,8 +471,8 @@ func handleGetServiceTypes(ctx context.Context, client *sdk.Handler, args map[st
 
 	return map[string]interface{}{
 		"service_types": serviceTypes,
-		"count":        len(serviceTypes),
-		"note":         "Use knowledge_base tool for detailed configuration examples",
+		"count":         len(serviceTypes),
+		"note":          "Use knowledge_base tool for detailed configuration examples",
 	}, nil
 }
 
@@ -523,10 +519,10 @@ func handleImportServices(ctx context.Context, client *sdk.Handler, args map[str
 	// Capture response metadata
 	statusCode := resp.StatusCode()
 	headers := resp.Headers()
-	
+
 	// Try to get raw response for better error details
 	outputInterface, outputErr := resp.OutputInterface()
-	
+
 	output, err := resp.Output()
 	if err != nil {
 		// Even on error, return metadata including raw response
@@ -537,12 +533,12 @@ func handleImportServices(ctx context.Context, client *sdk.Handler, args map[str
 			"error":       err.Error(),
 			"message":     fmt.Sprintf("Import failed with status %d: %v", statusCode, err),
 		}
-		
+
 		// Include raw response if available
 		if outputErr == nil && outputInterface != nil {
 			errorResponse["raw_response"] = outputInterface
 		}
-		
+
 		return errorResponse, nil
 	}
 
@@ -676,7 +672,7 @@ func handleGetServiceLogs(ctx context.Context, client *sdk.Handler, args map[str
 	}
 
 	servicePath := path.ServiceStackId{Id: uuid.ServiceStackId(serviceID)}
-	
+
 	// Get service info first to validate it exists and get project ID
 	serviceResp, err := client.GetServiceStack(ctx, servicePath)
 	if err != nil {
@@ -695,8 +691,8 @@ func handleGetServiceLogs(ctx context.Context, client *sdk.Handler, args map[str
 		return map[string]interface{}{
 			"service_id":   serviceID,
 			"service_name": serviceOutput.Name.Native(),
-			"error":       "Build logs support requires app version lookup - not yet implemented",
-			"note": "Use show_build_logs: false for runtime logs",
+			"error":        "Build logs support requires app version lookup - not yet implemented",
+			"note":         "Use show_build_logs: false for runtime logs",
 		}, nil
 	}
 
@@ -720,7 +716,7 @@ func handleGetServiceLogs(ctx context.Context, client *sdk.Handler, args map[str
 	method, baseURL := urlData[0], urlData[1]
 
 	// Build query parameters (following zcli pattern)
-	queryParams := fmt.Sprintf("&limit=%d&desc=1&facility=%d&serviceStackId=%s", 
+	queryParams := fmt.Sprintf("&limit=%d&desc=1&facility=%d&serviceStackId=%s",
 		limit, getFacilityCode(messageType), serviceID)
 
 	// Add severity filter if specified
@@ -733,7 +729,7 @@ func handleGetServiceLogs(ctx context.Context, client *sdk.Handler, args map[str
 	// Make HTTP request to get logs
 	fullURL := "https://" + baseURL + queryParams
 	httpClient := &http.Client{Timeout: time.Minute}
-	
+
 	req, err := http.NewRequestWithContext(ctx, method, fullURL, nil)
 	if err != nil {
 		return shared.ErrorResponse(fmt.Sprintf("Failed to create request: %v", err)), nil
@@ -770,10 +766,10 @@ func handleGetServiceLogs(ctx context.Context, client *sdk.Handler, args map[str
 			"limit":            limit,
 			"minimum_severity": minSeverity,
 			"message_type":     messageType,
-			"format":          format,
+			"format":           format,
 			"format_template":  formatTemplate,
-			"follow":          follow,
-			"show_build_logs": showBuildLogs,
+			"follow":           follow,
+			"show_build_logs":  showBuildLogs,
 		},
 		"status": "success",
 	}, nil
@@ -821,7 +817,7 @@ func formatLogs(logs []LogData, format, formatTemplate string) interface{} {
 				"content":         log.Content,
 				"priority":        log.Priority,
 				"proc_id":         log.ProcId,
-				"tag":            log.Tag,
+				"tag":             log.Tag,
 				"structured_data": log.StructuredData,
 			}
 			fullLogs = append(fullLogs, entry)
@@ -841,7 +837,7 @@ func handleRestartService(ctx context.Context, client *sdk.Handler, args map[str
 	}
 
 	servicePath := path.ServiceStackId{Id: uuid.ServiceStackId(serviceID)}
-	
+
 	// Get service info to validate it exists and get service name
 	serviceResp, err := client.GetServiceStack(ctx, servicePath)
 	if err != nil {
@@ -865,7 +861,7 @@ func handleRestartService(ctx context.Context, client *sdk.Handler, args map[str
 		return shared.ErrorResponse(fmt.Sprintf("Failed to parse stop process: %v", err)), nil
 	}
 
-	// Then, start the service 
+	// Then, start the service
 	startResp, err := client.PutServiceStackStart(ctx, servicePath)
 	if err != nil {
 		return shared.ErrorResponse(fmt.Sprintf("Failed to start service: %v", err)), nil
@@ -878,15 +874,15 @@ func handleRestartService(ctx context.Context, client *sdk.Handler, args map[str
 
 	// Return the start process information (most relevant for monitoring)
 	return map[string]interface{}{
-		"process_id":      string(startProcess.Id),
-		"service_id":      serviceID,
-		"service_name":    serviceOutput.Name.Native(),
-		"status":          string(startProcess.Status),
-		"action_name":     startProcess.ActionName.Native(),
-		"created":         startProcess.Created.Native(),
-		"stop_process_id": string(stopProcess.Id),
+		"process_id":       string(startProcess.Id),
+		"service_id":       serviceID,
+		"service_name":     serviceOutput.Name.Native(),
+		"status":           string(startProcess.Status),
+		"action_name":      startProcess.ActionName.Native(),
+		"created":          startProcess.Created.Native(),
+		"stop_process_id":  string(stopProcess.Id),
 		"start_process_id": string(startProcess.Id),
-		"message":         "Service restart initiated (stop + start). Use 'get_process_status' to monitor progress.",
+		"message":          "Service restart initiated (stop + start). Use 'get_process_status' to monitor progress.",
 	}, nil
 }
 
@@ -902,15 +898,15 @@ func handleRemountService(ctx context.Context, client *sdk.Handler, args map[str
 
 	// Note: This is a placeholder implementation
 	// The actual remount would need proper SDK methods or system commands
-	
+
 	mountPath := fmt.Sprintf("/var/www/%s", serviceName)
-	
+
 	// Commands to check and handle existing mounts
 	checkMountCommand := fmt.Sprintf(`mount | grep "%s"`, mountPath)
 	unmountCommand := fmt.Sprintf(`fusermount -u "%s" 2>/dev/null || umount "%s" 2>/dev/null || true`, mountPath, mountPath)
 	mkdirCommand := fmt.Sprintf(`mkdir -p "%s"`, mountPath)
 	sshfsCommand := fmt.Sprintf(`sshfs -o StrictHostKeyChecking=no,reconnect,ServerAliveInterval=15,ServerAliveCountMax=3,auto_cache,kernel_cache "%s:/var/www" "%s"`, serviceName, mountPath)
-	
+
 	// Combined command that checks, unmounts if needed, creates dir, and mounts
 	combinedCommand := fmt.Sprintf(`
 # Check if already mounted and unmount if necessary
@@ -925,7 +921,7 @@ mkdir -p "%s"
 # Mount SSHFS
 sshfs -o StrictHostKeyChecking=no,reconnect,ServerAliveInterval=15,ServerAliveCountMax=3,auto_cache,kernel_cache "%s:/var/www" "%s"
 `, mountPath, mountPath, mountPath, mountPath, mountPath, serviceName, mountPath)
-	
+
 	return map[string]interface{}{
 		"status":       "success",
 		"service_name": serviceName,
@@ -937,7 +933,7 @@ sshfs -o StrictHostKeyChecking=no,reconnect,ServerAliveInterval=15,ServerAliveCo
 			"sshfs":       sshfsCommand,
 			"combined":    combinedCommand,
 		},
-		"message":      fmt.Sprintf("Commands to remount SSHFS for service '%s':", serviceName),
+		"message": fmt.Sprintf("Commands to remount SSHFS for service '%s':", serviceName),
 		"instructions": []string{
 			"Option 1: Run the combined command that handles everything:",
 			combinedCommand,
